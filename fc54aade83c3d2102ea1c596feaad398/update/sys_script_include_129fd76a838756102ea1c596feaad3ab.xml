@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_include">
+    <sys_script_include action="INSERT_OR_UPDATE">
+        <access>package_private</access>
+        <active>true</active>
+        <api_name>x_441470_itsm_mcs.McSimUtil</api_name>
+        <caller_access/>
+        <client_callable>false</client_callable>
+        <description/>
+        <mobile_callable>false</mobile_callable>
+        <name>McSimUtil</name>
+        <sandbox_callable>false</sandbox_callable>
+        <script><![CDATA[var McSimUtil = Class.create();
+McSimUtil.prototype = {
+    simulateThroughput: function (days, iterations, dailyThroughput) {
+        var results = [];
+        for (var i = 0; i < iterations; i++) {
+            var totalThroughput = 0;
+            for (var j = 0; j < days; j++) {
+                var randomIndex = Math.floor(Math.random() * dailyThroughput.length);
+                totalThroughput += dailyThroughput[randomIndex];
+            }
+            results.push(totalThroughput);
+        }
+
+        // Debugging: Erste 10 Ergebnisse ausgeben
+        gs.info("Simulation Results (first 10): " + JSON.stringify(results.slice(0, 10)));
+
+        return results;
+    },
+
+    calculateProbability: function (targetThroughput, simulationResults) {
+        var successCount = simulationResults.filter(function (result) {
+            return result >= targetThroughput;
+        }).length;
+
+        var probability = (successCount / simulationResults.length) * 100;
+        return probability;
+    },
+
+    calculatePercentile: function (simulationResults, confidenceLevel) {
+        simulationResults.sort(function (a, b) {
+            return a - b;
+        });
+
+        var index = Math.ceil((1 - confidenceLevel / 100) * simulationResults.length) - 1;
+        return simulationResults[Math.max(0, index)];
+    },
+
+    type: 'McSimUtil'
+};]]></script>
+        <sys_class_name>sys_script_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2025-01-15 14:33:02</sys_created_on>
+        <sys_id>129fd76a838756102ea1c596feaad3ab</sys_id>
+        <sys_mod_count>1</sys_mod_count>
+        <sys_name>McSimUtil</sys_name>
+        <sys_package display_value="ITSM Monte Carlo Simulation" source="x_441470_itsm_mcs">fc54aade83c3d2102ea1c596feaad398</sys_package>
+        <sys_policy>read</sys_policy>
+        <sys_scope display_value="ITSM Monte Carlo Simulation">fc54aade83c3d2102ea1c596feaad398</sys_scope>
+        <sys_update_name>sys_script_include_129fd76a838756102ea1c596feaad3ab</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2025-01-16 08:40:10</sys_updated_on>
+    </sys_script_include>
+    <sys_es_latest_script action="INSERT_OR_UPDATE">
+        <id>129fd76a838756102ea1c596feaad3ab</id>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2025-01-15 14:33:02</sys_created_on>
+        <sys_id>2280a76a838756102ea1c596feaad307</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2025-01-15 14:33:02</sys_updated_on>
+        <table>sys_script_include</table>
+        <use_es_latest>true</use_es_latest>
+    </sys_es_latest_script>
+</record_update>

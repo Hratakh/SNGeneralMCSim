@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sp_widget">
+    <sp_widget action="INSERT_OR_UPDATE">
+        <category>custom</category>
+        <client_script><![CDATA[api.controller = function ($scope) {
+    var canvas = document.getElementById('simulationChart');
+    var confidenceInput = document.getElementById('confidenceInput');
+    var confidenceDisplay = document.getElementById('confidenceDisplay');
+    var daysInput = document.getElementById('daysInput');
+    var iterationsInput = document.getElementById('iterationsInput');
+		var tableInput = document.getElementById('tableInput');
+		var queryInput = document.getElementById('queryInput');
+		var datefieldInput = document.getElementById('datefieldInput');
+    var reloadButton = document.getElementById('reloadButton');
+
+    if (!canvas || !confidenceInput || !confidenceDisplay || !daysInput || !iterationsInput || !reloadButton) {
+        console.error("Elements not found!");
+        return;
+    }
+
+    // Default parameters
+    $scope.confidenceValue = 85;
+    $scope.simulationDays = 14;
+    $scope.simulationIterations = 10000;
+		$scope.queryTable = 'incident';
+		$scope.queryEncoded = 'active=false';
+		$scope.dateField = 'closed_at';		
+	
+    var histogramData = $scope.data.histogramData || [];
+
+    if (histogramData.length === 0) {
+        console.error("No histogram data available.");
+        return;
+    }
+
+    var chartInstance = null; // Stores the current Chart.js instance
+
+    // Function to reload the chart
+    function reloadChart(confidenceLevel, histogramData) {
+    // Sortiere die Histogrammdaten nach der Anzahl der Tasks
+    histogramData.sort(function (a, b) {
+        return a.throughput - b.throughput;
+    });
+
+    // Berechne das Perzentil (von rechts nach links)
+    var totalFrequency = histogramData.reduce(function (sum, item) {
+        return sum + item.frequency;
+    }, 0);
+
+    var cumulativeFrequency = 0;
+    var percentileTasks = null;
+
+    for (var i = histogramData.length - 1; i >= 0; i--) { // Von rechts nach links iterieren
+        cumulativeFrequency += histogramData[i].frequency;
+
+        if ((cumulativeFrequency / totalFrequency) >= (confidenceLevel / 100)) {
+            percentileTasks = histogramData[i].throughput;
+            break;
+        }
+    }
+			
+    // Update the confidence display
+    confidenceDisplay.textContent = confidenceLevel + "% (" + percentileTasks + " tasks)";
+			
+    // Zeichne das Diagramm
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+
+    chartInstance = new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: histogramData.map(function (item) {
+                return item.throughput;
+            }),
+            datasets: [{
+                label: 'Number of Occurrences',
+                data: histogramData.map(function (item) {
+                    return item.frequency;
+                }),
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            plugins: {
+                annotation: {
+                    annotations: {
+                        confidenceLine: {
+                            type: 'line',
+                            xMin: percentileTasks,
+                            xMax: percentileTasks,
+                            borderColor: 'red',
+                            borderWidth: 2,
+                            label: {
+                                content: `${confidenceLevel}% Confidence (${percentileTasks} Tasks)`,
+                                enabled: true,
+                                position: 'end',
+                                backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                                color: 'white',
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                },
+                                padding: 6
+                            }
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    type: 'linear',
+                    title: {
+                        display: true,
+                        text: 'Number of Tasks'
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Frequency'
+                    }
+                }
+            }
+        }
+    });
+}
+
+    // Event Listener for simulation parameters
+    reloadButton.addEventListener('click', function () {
+        var days = parseInt(daysInput.value, 10);
+        var iterations = parseInt(iterationsInput.value, 10);
+				var queryTable = tableInput.value;
+				var queryEncoded = queryInput.value;
+				var dateField = datefieldInput.value;
+
+        if (isNaN(days) || days <= 0) {
+            alert("Please enter a valid number of days.");
+            return;
+        }
+        if (isNaN(iterations) || iterations <= 0) {
+            alert("Please enter a valid number of iterations.");
+            return;
+        }
+
+        // Update simulation parameters
+        $scope.simulationDays = days;
+        $scope.simulationIterations = iterations;
+				$scope.queryTable = queryTable;
+				$scope.queryEncoded = queryEncoded;
+				$scope.dateField = dateField;
+
+        // Call the server to recalculate the simulation data
+        $scope.server.get({
+            days: $scope.simulationDays,
+            iterations: $scope.simulationIterations,
+						queryTable: $scope.queryTable,
+						queryEncoded: $scope.queryEncoded,
+						dateField: $scope.dateField
+        }).then(function (response) {
+            //console.log("Server response (after Run Simulation):", response);
+
+            // Update histogram data
+            histogramData = response.data.histogramData || [];
+            if (histogramData.length === 0) {
+                console.error("Received empty histogram data!");
+            } 
+            reloadChart($scope.confidenceValue, histogramData);
+        });
+    });
+
+    // Initial chart load
+    reloadChart($scope.confidenceValue, histogramData);
+
+    // Event Listener for confidence input
+    confidenceInput.addEventListener('input', function () {
+        var value = parseInt(confidenceInput.value, 10);
+        if (value >= 1 && value <= 100) {
+            $scope.confidenceValue = value;
+            reloadChart($scope.confidenceValue, histogramData);
+        } else {
+            confidenceDisplay.textContent = "Please enter a value between 1 and 100.";
+        }
+    });
+};
+]]></client_script>
+        <controller_as>c</controller_as>
+        <css/>
+        <data_table>sp_instance</data_table>
+        <demo_data/>
+        <description/>
+        <docs/>
+        <field_list/>
+        <has_preview>false</has_preview>
+        <id>task_monte_carlo_sim</id>
+        <internal>false</internal>
+        <link><![CDATA[function link(scope, element, attrs, controller) {  }]]></link>
+        <name>Task Monte Carlo Sim</name>
+        <option_schema/>
+        <public>false</public>
+        <roles/>
+        <script><![CDATA[(function () {
+    // Eingabewerte aus der Client-Seite
+    var days = input && input.days ? parseInt(input.days, 10) : 14; // Standard: 14 Tage
+    var iterations = input && input.iterations ? parseInt(input.iterations, 10) : 10000; // Standard: 10.000 Iterationen
+    var confidenceLevel = input && input.confidence ? parseFloat(input.confidence) : 85; // Standard: 85%
+		var queryTable = input && input.queryTable ? input.queryTable : 'incident';
+		var queryEncoded = input && input.queryEncoded ? input.queryEncoded : 'active=false';
+		var dateField = input && input.dateField ? input.dateField : 'closed_at';
+	
+    // Initialisiere Hilfsklassen
+    var taskDataUtil = new McTaskUtil();
+    var monteCarloSim = new McSimUtil();
+
+    // Hole den täglichen Durchsatz aus den historischen Daten
+    var dailyThroughput = taskDataUtil.getDailyThroughput(queryTable,dateField,queryEncoded);
+
+    if (dailyThroughput.length === 0) {
+        data.error = "No historical data available.";
+        return;
+    }
+
+    // Monte-Carlo-Simulation durchführen
+    var simulationResults = monteCarloSim.simulateThroughput(days, iterations, dailyThroughput);
+
+    // Berechne das Perzentil basierend auf dem Confidence Level
+    var percentileTasks = monteCarloSim.calculatePercentile(simulationResults, confidenceLevel);
+
+    // Erstelle das Histogramm
+    var histogram = simulationResults.reduce(function (acc, throughput) {
+        acc[throughput] = (acc[throughput] || 0) + 1;
+        return acc;
+    }, {});
+
+    // Formatieren der Histogrammdaten für den Client
+    data.histogramData = Object.keys(histogram).map(function (key) {
+        return {
+            throughput: parseInt(key, 10),
+            frequency: histogram[key]
+        };
+    });
+
+    // Sortiere die Histogrammdaten nach Durchsatz
+    data.histogramData.sort(function (a, b) {
+        return a.throughput - b.throughput;
+    });
+
+    // Füge das Perzentil zur Rückgabe hinzu
+    data.percentileTasks = percentileTasks;
+
+    // Debugging: Optionale Protokollierung
+    gs.info("Simulation Results (first 10): " + JSON.stringify(simulationResults.slice(0, 10)));
+    gs.info("Histogram Data: " + JSON.stringify(data.histogramData));
+    gs.info("85% Confidence: " + percentileTasks + " stories can be completed.");
+})();
+]]></script>
+        <servicenow>false</servicenow>
+        <sys_class_name>sp_widget</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2025-01-15 14:48:34</sys_created_on>
+        <sys_id>c6146b26838756102ea1c596feaad3c0</sys_id>
+        <sys_mod_count>9</sys_mod_count>
+        <sys_name>Task Monte Carlo Sim</sys_name>
+        <sys_package display_value="ITSM Monte Carlo Simulation" source="x_441470_itsm_mcs">fc54aade83c3d2102ea1c596feaad398</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="ITSM Monte Carlo Simulation">fc54aade83c3d2102ea1c596feaad398</sys_scope>
+        <sys_update_name>sp_widget_c6146b26838756102ea1c596feaad3c0</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2025-01-16 21:25:44</sys_updated_on>
+        <template><![CDATA[<h1>
+  ITSM Monte Carlo Simulation
+</h1>
+<div class="widget-body">
+    <label for="confidenceInput">Confidence level (%):</label>
+    <input id="confidenceInput" type="number" min="1" max="100" value="85" style="margin-left: 10px; width: 60px;" />
+    <p id="confidenceDisplay">85% (0 stories)</p>
+    <label for="daysInput">Days:</label>
+    <input id="daysInput" type="number" min="1" value="14" style="margin-left: 10px; width: 60px;" />
+    <label for="iterationsInput">Iterations:</label>
+    <input id="iterationsInput" type="number" min="1" value="10000" style="margin-left: 10px; width: 80px;" />
+    <button id="reloadButton" style="margin-left: 10px;">Run Simulation</button>
+    <canvas id="simulationChart" width="300" height="200"></canvas>
+    <label for="tableInput">Table</label>
+		<input id="tableInput" type="text" value="incident" style="margin-left: 10px; width: 80px;" />
+    <label for="queryInput">Encoded Query</label>
+		<input id="queryInput" type="text" value="active=false" style="margin-left: 10px; width: 200px;" />
+  	<label for="datefieldInput">Date field</label>
+		<input id="datefieldInput" type="text" value="closed_at" style="margin-left: 10px; width: 80px;" />
+</div>]]></template>
+    </sp_widget>
+</record_update>
