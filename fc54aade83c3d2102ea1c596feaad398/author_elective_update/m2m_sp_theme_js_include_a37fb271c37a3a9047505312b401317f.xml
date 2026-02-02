@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="m2m_sp_theme_js_include">
+    <m2m_sp_theme_js_include action="DELETE">
+        <order/>
+        <sp_js_include display_value="https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.min.js">5d3f3efdc33a3a9047505312b40131dc</sp_js_include>
+        <sp_theme display_value="ITSM MCS Theme">7f9efa3dc33a3a9047505312b4013151</sp_theme>
+        <sys_class_name>m2m_sp_theme_js_include</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-02-02 10:19:49</sys_created_on>
+        <sys_id>a37fb271c37a3a9047505312b401317f</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.min.js.ITSM MCS Theme</sys_name>
+        <sys_package display_value="ITSM Monte Carlo Simulation" source="x_441470_itsm_mcs">fc54aade83c3d2102ea1c596feaad398</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="ITSM Monte Carlo Simulation">fc54aade83c3d2102ea1c596feaad398</sys_scope>
+        <sys_update_name>m2m_sp_theme_js_include_a37fb271c37a3a9047505312b401317f</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-02-02 10:19:49</sys_updated_on>
+    </m2m_sp_theme_js_include>
+    <sys_update_version action="INSERT_OR_UPDATE">
+        <action>DELETE</action>
+        <application display_value="ITSM Monte Carlo Simulation">fc54aade83c3d2102ea1c596feaad398</application>
+        <file_path/>
+        <instance_id>8d616bb73b70aa14a36804e0b5e45ab6</instance_id>
+        <instance_name>dev329461</instance_name>
+        <name>m2m_sp_theme_js_include_a37fb271c37a3a9047505312b401317f</name>
+        <payload><![CDATA[<?xml version="1.0" encoding="UTF-8"?><record_update table="m2m_sp_theme_js_include"><m2m_sp_theme_js_include action="INSERT_OR_UPDATE"><order/><sp_js_include display_value="https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.min.js">5d3f3efdc33a3a9047505312b40131dc</sp_js_include><sp_theme display_value="ITSM MCS Theme">7f9efa3dc33a3a9047505312b4013151</sp_theme><sys_class_name>m2m_sp_theme_js_include</sys_class_name><sys_created_by>admin</sys_created_by><sys_created_on>2026-02-02 10:19:49</sys_created_on><sys_id>a37fb271c37a3a9047505312b401317f</sys_id><sys_mod_count>0</sys_mod_count><sys_name>https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.min.js.ITSM MCS Theme</sys_name><sys_package display_value="ITSM Monte Carlo Simulation" source="x_441470_itsm_mcs">fc54aade83c3d2102ea1c596feaad398</sys_package><sys_policy/><sys_scope display_value="ITSM Monte Carlo Simulation">fc54aade83c3d2102ea1c596feaad398</sys_scope><sys_update_name>m2m_sp_theme_js_include_a37fb271c37a3a9047505312b401317f</sys_update_name><sys_updated_by>admin</sys_updated_by><sys_updated_on>2026-02-02 10:19:49</sys_updated_on></m2m_sp_theme_js_include></record_update>]]></payload>
+        <payload_hash>2004176676</payload_hash>
+        <record_name>https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.min.js.ITSM MCS Theme</record_name>
+        <reverted_from/>
+        <source>da017af5c3fef69047505312b40131b1</source>
+        <source_table>sys_update_set</source_table>
+        <state>previous</state>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-02-02 10:19:49</sys_created_on>
+        <sys_id>eb7fb271c37a3a9047505312b4013182</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_recorded_at>19c1ddd9e670000001</sys_recorded_at>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-02-02 10:19:49</sys_updated_on>
+        <type>JS Includes</type>
+        <update_guid>ab7fb271757a3a909e3795b3e3b87381</update_guid>
+        <update_guid_history>ab7fb271757a3a909e3795b3e3b87381:2004176676</update_guid_history>
+    </sys_update_version>
+    <sys_metadata_delete action="INSERT_OR_UPDATE">
+        <sys_audit_delete display_value="https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.min.js.ITSM MCS Theme">d1bff6b1c37a3a9047505312b4013158</sys_audit_delete>
+        <sys_class_name>sys_metadata_delete</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-02-02 10:20:46</sys_created_on>
+        <sys_db_object display_value="" name="m2m_sp_theme_js_include">m2m_sp_theme_js_include</sys_db_object>
+        <sys_id>5ef64d9ba8604f5eb72171b4e4f714a9</sys_id>
+        <sys_metadata>a37fb271c37a3a9047505312b401317f</sys_metadata>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.min.js.ITSM MCS Theme</sys_name>
+        <sys_package display_value="ITSM Monte Carlo Simulation" source="x_441470_itsm_mcs">fc54aade83c3d2102ea1c596feaad398</sys_package>
+        <sys_parent/>
+        <sys_policy/>
+        <sys_scope display_value="ITSM Monte Carlo Simulation">fc54aade83c3d2102ea1c596feaad398</sys_scope>
+        <sys_scope_delete display_value="">12c7dc864b7643e091c71d85f33fe490</sys_scope_delete>
+        <sys_update_name>m2m_sp_theme_js_include_a37fb271c37a3a9047505312b401317f</sys_update_name>
+        <sys_update_version display_value="m2m_sp_theme_js_include_a37fb271c37a3a9047505312b401317f">eb7fb271c37a3a9047505312b4013182</sys_update_version>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-02-02 10:20:46</sys_updated_on>
+    </sys_metadata_delete>
+</record_update>

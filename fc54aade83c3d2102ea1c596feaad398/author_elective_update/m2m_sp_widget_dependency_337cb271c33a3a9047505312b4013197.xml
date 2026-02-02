@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="m2m_sp_widget_dependency">
+    <m2m_sp_widget_dependency action="DELETE">
+        <sp_dependency display_value="chart.js">a7a8754347011200ba13a5554ee4905c</sp_dependency>
+        <sp_widget display_value="Task Monte Carlo Sim">c6146b26838756102ea1c596feaad3c0</sp_widget>
+        <sys_class_name>m2m_sp_widget_dependency</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-02-02 10:06:44</sys_created_on>
+        <sys_id>337cb271c33a3a9047505312b4013197</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>chart.js.Task Monte Carlo Sim</sys_name>
+        <sys_package display_value="ITSM Monte Carlo Simulation" source="x_441470_itsm_mcs">fc54aade83c3d2102ea1c596feaad398</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="ITSM Monte Carlo Simulation">fc54aade83c3d2102ea1c596feaad398</sys_scope>
+        <sys_update_name>m2m_sp_widget_dependency_337cb271c33a3a9047505312b4013197</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-02-02 10:06:44</sys_updated_on>
+    </m2m_sp_widget_dependency>
+    <sys_update_version action="INSERT_OR_UPDATE">
+        <action>DELETE</action>
+        <application display_value="ITSM Monte Carlo Simulation">fc54aade83c3d2102ea1c596feaad398</application>
+        <file_path/>
+        <instance_id>8d616bb73b70aa14a36804e0b5e45ab6</instance_id>
+        <instance_name>dev329461</instance_name>
+        <name>m2m_sp_widget_dependency_337cb271c33a3a9047505312b4013197</name>
+        <payload><![CDATA[<?xml version="1.0" encoding="UTF-8"?><record_update table="m2m_sp_widget_dependency"><m2m_sp_widget_dependency action="INSERT_OR_UPDATE"><sp_dependency display_value="chart.js">a7a8754347011200ba13a5554ee4905c</sp_dependency><sp_widget display_value="Task Monte Carlo Sim">c6146b26838756102ea1c596feaad3c0</sp_widget><sys_class_name>m2m_sp_widget_dependency</sys_class_name><sys_created_by>admin</sys_created_by><sys_created_on>2026-02-02 10:06:44</sys_created_on><sys_id>337cb271c33a3a9047505312b4013197</sys_id><sys_mod_count>0</sys_mod_count><sys_name>chart.js.Task Monte Carlo Sim</sys_name><sys_package display_value="ITSM Monte Carlo Simulation" source="x_441470_itsm_mcs">fc54aade83c3d2102ea1c596feaad398</sys_package><sys_policy/><sys_scope display_value="ITSM Monte Carlo Simulation">fc54aade83c3d2102ea1c596feaad398</sys_scope><sys_update_name>m2m_sp_widget_dependency_337cb271c33a3a9047505312b4013197</sys_update_name><sys_updated_by>admin</sys_updated_by><sys_updated_on>2026-02-02 10:06:44</sys_updated_on></m2m_sp_widget_dependency></record_update>]]></payload>
+        <payload_hash>607646157</payload_hash>
+        <record_name>chart.js.Task Monte Carlo Sim</record_name>
+        <reverted_from/>
+        <source>da017af5c3fef69047505312b40131b1</source>
+        <source_table>sys_update_set</source_table>
+        <state>previous</state>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-02-02 10:06:44</sys_created_on>
+        <sys_id>bb7cb271c33a3a9047505312b401319c</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_recorded_at>19c1dd1a4f90000001</sys_recorded_at>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-02-02 10:06:44</sys_updated_on>
+        <type>Widget Dependency</type>
+        <update_guid>7b7cb271363a3a90c5fe4481fd2c219b</update_guid>
+        <update_guid_history>7b7cb271363a3a90c5fe4481fd2c219b:607646157</update_guid_history>
+    </sys_update_version>
+    <sys_metadata_delete action="INSERT_OR_UPDATE">
+        <sys_audit_delete display_value="chart.js.Task Monte Carlo Sim">324e077dc37e3a9047505312b4013118</sys_audit_delete>
+        <sys_class_name>sys_metadata_delete</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-02-02 11:24:29</sys_created_on>
+        <sys_db_object display_value="" name="m2m_sp_widget_dependency">m2m_sp_widget_dependency</sys_db_object>
+        <sys_id>35ba5a2a959947e2b4a0e195344839a4</sys_id>
+        <sys_metadata>337cb271c33a3a9047505312b4013197</sys_metadata>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>chart.js.Task Monte Carlo Sim</sys_name>
+        <sys_package display_value="ITSM Monte Carlo Simulation" source="x_441470_itsm_mcs">fc54aade83c3d2102ea1c596feaad398</sys_package>
+        <sys_parent/>
+        <sys_policy/>
+        <sys_scope display_value="ITSM Monte Carlo Simulation">fc54aade83c3d2102ea1c596feaad398</sys_scope>
+        <sys_scope_delete display_value="">12c7dc864b7643e091c71d85f33fe490</sys_scope_delete>
+        <sys_update_name>m2m_sp_widget_dependency_337cb271c33a3a9047505312b4013197</sys_update_name>
+        <sys_update_version display_value="m2m_sp_widget_dependency_337cb271c33a3a9047505312b4013197">bb7cb271c33a3a9047505312b401319c</sys_update_version>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-02-02 11:24:29</sys_updated_on>
+    </sys_metadata_delete>
+</record_update>
