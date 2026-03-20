@@ -3,11 +3,11 @@
         <class_name/>
         <order>1</order>
         <semantic_tag/>
-        <size/>
+        <size>6</size>
         <size_lg/>
         <size_sm/>
         <size_xs/>
-        <sp_row display_value="2">c6346b48a59856102ea1c596feaad3e2</sp_row>
+        <sp_row display_value="1">861423a283c756102ea1c596feaad300</sp_row>
         <sys_class_name>sp_column</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-03-20 00:00:00</sys_created_on>
