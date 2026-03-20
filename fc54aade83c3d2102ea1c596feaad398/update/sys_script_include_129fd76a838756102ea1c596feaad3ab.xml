@@ -28,6 +28,27 @@ McSimUtil.prototype = {
         return results;
     },
 
+    // Simulates how many calendar days are needed to complete a given number of tasks.
+    // Each iteration samples days from the historical distribution (incl. zero-throughput
+    // days) until the cumulative completed tasks reaches the target.
+    simulateDaysToComplete: function (tasks, iterations, dailyThroughput) {
+        // Safety guard: stop after 10 years worth of days to avoid infinite loops
+        // when throughput data contains only zeros.
+        var maxDays = tasks * 365;
+        var results = [];
+        for (var i = 0; i < iterations; i++) {
+            var totalTasks = 0;
+            var days = 0;
+            while (totalTasks < tasks && days < maxDays) {
+                var randomIndex = Math.floor(Math.random() * dailyThroughput.length);
+                totalTasks += dailyThroughput[randomIndex];
+                days++;
+            }
+            results.push(days);
+        }
+        return results;
+    },
+
     calculateProbability: function (targetThroughput, simulationResults) {
         var successCount = simulationResults.filter(function (result) {
             return result >= targetThroughput;

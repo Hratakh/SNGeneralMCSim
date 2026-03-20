@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sp_widget">
+    <sp_widget action="INSERT_OR_UPDATE">
+        <category>custom</category>
+        <client_script><![CDATA[api.controller = function ($scope) {
+    var canvas = document.getElementById('completionChart');
+    var confidenceInput = document.getElementById('completionConfidenceInput');
+    var confidenceDisplay = document.getElementById('completionConfidenceDisplay');
+    var tasksInput = document.getElementById('tasksInput');
+    var iterationsInput = document.getElementById('completionIterationsInput');
+    var tableInput = document.getElementById('completionTableInput');
+    var queryInput = document.getElementById('completionQueryInput');
+    var datefieldInput = document.getElementById('completionDatefieldInput');
+    var reloadButton = document.getElementById('completionReloadButton');
+
+    if (!canvas || !confidenceInput || !confidenceDisplay || !tasksInput || !iterationsInput || !reloadButton) {
+        console.error("Elements not found!");
+        return;
+    }
+
+    // Default parameters
+    $scope.confidenceValue = 85;
+    $scope.simulationTasks = 50;
+    $scope.simulationIterations = 10000;
+    $scope.queryTable = 'incident';
+    $scope.queryEncoded = 'active=false';
+    $scope.dateField = 'closed_at';
+
+    var histogramData = $scope.data.histogramData || [];
+    var binWidth = $scope.data.binWidth || 1;
+
+    if (histogramData.length === 0) {
+        console.error("No histogram data available.");
+        return;
+    }
+
+    var chartInstance = null;
+
+    function reloadChart(confidenceLevel, histogramData, binWidth) {
+        histogramData.sort(function (a, b) {
+            return a.days - b.days;
+        });
+
+        // For "days to complete": lower days is better.
+        // The confidence line answers: "X% of simulations finished within Y days."
+        // Walk left-to-right until cumulative frequency reaches the confidence threshold.
+        var totalFrequency = histogramData.reduce(function (sum, item) {
+            return sum + item.frequency;
+        }, 0);
+
+        var cumulativeFrequency = 0;
+        var percentileDays = null;
+
+        for (var i = 0; i < histogramData.length; i++) {
+            cumulativeFrequency += histogramData[i].frequency;
+            if ((cumulativeFrequency / totalFrequency) >= (confidenceLevel / 100)) {
+                percentileDays = histogramData[i].days;
+                break;
+            }
+        }
+
+        confidenceDisplay.textContent = confidenceLevel + "% (" + percentileDays + " days)";
+
+        if (chartInstance) {
+            chartInstance.destroy();
+        }
+
+        chartInstance = new Chart(canvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: histogramData.map(function (item) {
+                    return item.days;
+                }),
+                datasets: [{
+                    label: 'Number of Occurrences',
+                    data: histogramData.map(function (item) {
+                        return item.frequency;
+                    }),
+                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                    borderColor: 'rgba(153, 102, 255, 1)',
+                    borderWidth: 1,
+                    barPercentage: 1.0,
+                    categoryPercentage: 1.0
+                }]
+            },
+            options: {
+                plugins: {
+                    annotation: {
+                        annotations: {
+                            confidenceLine: {
+                                type: 'line',
+                                xMin: percentileDays,
+                                xMax: percentileDays,
+                                borderColor: 'red',
+                                borderWidth: 2,
+                                label: {
+                                    content: `${confidenceLevel}% Confidence (${percentileDays} Days)`,
+                                    enabled: true,
+                                    position: 'end',
+                                    backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                                    color: 'white',
+                                    font: {
+                                        size: 12,
+                                        weight: 'bold'
+                                    },
+                                    padding: 6
+                                }
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        title: {
+                            display: true,
+                            text: 'Number of Days'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Frequency'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Event Listener for Run Simulation button
+    reloadButton.addEventListener('click', function () {
+        var tasks = parseInt(tasksInput.value, 10);
+        var iterations = parseInt(iterationsInput.value, 10);
+        var queryTable = tableInput.value;
+        var queryEncoded = queryInput.value;
+        var dateField = datefieldInput.value;
+
+        if (isNaN(tasks) || tasks <= 0) {
+            alert("Please enter a valid number of tasks.");
+            return;
+        }
+        if (isNaN(iterations) || iterations <= 0) {
+            alert("Please enter a valid number of iterations.");
+            return;
+        }
+
+        $scope.simulationTasks = tasks;
+        $scope.simulationIterations = iterations;
+        $scope.queryTable = queryTable;
+        $scope.queryEncoded = queryEncoded;
+        $scope.dateField = dateField;
+
+        $scope.server.get({
+            tasks: $scope.simulationTasks,
+            iterations: $scope.simulationIterations,
+            queryTable: $scope.queryTable,
+            queryEncoded: $scope.queryEncoded,
+            dateField: $scope.dateField
+        }).then(function (response) {
+            histogramData = response.data.histogramData || [];
+            binWidth = response.data.binWidth || 1;
+            if (histogramData.length === 0) {
+                console.error("Received empty histogram data!");
+            }
+            reloadChart($scope.confidenceValue, histogramData, binWidth);
+        });
+    });
+
+    // Initial chart load
+    reloadChart($scope.confidenceValue, histogramData, binWidth);
+
+    // Event Listener for confidence input
+    confidenceInput.addEventListener('input', function () {
+        var value = parseInt(confidenceInput.value, 10);
+        if (value >= 1 && value <= 100) {
+            $scope.confidenceValue = value;
+            reloadChart($scope.confidenceValue, histogramData, binWidth);
+        } else {
+            confidenceDisplay.textContent = "Please enter a value between 1 and 100.";
+        }
+    });
+};
+]]></client_script>
+        <controller_as>c</controller_as>
+        <css/>
+        <data_table>sp_instance</data_table>
+        <demo_data/>
+        <description/>
+        <docs/>
+        <field_list/>
+        <has_preview>false</has_preview>
+        <id>task_monte_carlo_days</id>
+        <internal>false</internal>
+        <link><![CDATA[function link(scope, element, attrs, controller) {  }]]></link>
+        <name>Task Monte Carlo Days to Complete</name>
+        <option_schema/>
+        <public>false</public>
+        <roles/>
+        <script><![CDATA[(function () {
+    var tasks = input && input.tasks ? parseInt(input.tasks, 10) : 50;
+    var iterations = input && input.iterations ? parseInt(input.iterations, 10) : 10000;
+    var queryTable = input && input.queryTable ? input.queryTable : 'incident';
+    var queryEncoded = input && input.queryEncoded ? input.queryEncoded : 'active=false';
+    var dateField = input && input.dateField ? input.dateField : 'closed_at';
+
+    var taskDataUtil = new McTaskUtil();
+    var monteCarloSim = new McSimUtil();
+
+    var dailyThroughput = taskDataUtil.getDailyThroughput(queryTable, dateField, queryEncoded);
+
+    if (dailyThroughput.length === 0) {
+        data.error = "No historical data available.";
+        return;
+    }
+
+    // Run inverse simulation: how many days to complete 'tasks' items?
+    var simulationResults = monteCarloSim.simulateDaysToComplete(tasks, iterations, dailyThroughput);
+
+    // Sturges binning for a smooth bell curve
+    var sortedResults = simulationResults.slice().sort(function(a, b) { return a - b; });
+    var minResult = sortedResults[0];
+    var maxResult = sortedResults[sortedResults.length - 1];
+    var numBins = Math.ceil(1 + Math.log(iterations) / Math.log(2));
+    var binWidth = Math.max(1, Math.ceil((maxResult - minResult + 1) / numBins));
+
+    // Pre-fill all bins with 0 to avoid gaps on the x-axis
+    var histogram = {};
+    for (var k = 0; minResult + k * binWidth <= maxResult; k++) {
+        histogram[minResult + k * binWidth] = 0;
+    }
+
+    for (var r = 0; r < simulationResults.length; r++) {
+        var binKey = minResult + Math.floor((simulationResults[r] - minResult) / binWidth) * binWidth;
+        histogram[binKey]++;
+    }
+
+    data.histogramData = Object.keys(histogram).map(function (key) {
+        return {
+            days: parseInt(key, 10),
+            frequency: histogram[key]
+        };
+    });
+
+    data.histogramData.sort(function (a, b) {
+        return a.days - b.days;
+    });
+
+    data.binWidth = binWidth;
+
+    gs.info("Days-to-complete Simulation Results (first 10): " + JSON.stringify(simulationResults.slice(0, 10)));
+    gs.info("Days Histogram Data: " + JSON.stringify(data.histogramData));
+})();
+]]></script>
+        <template><![CDATA[<h1>
+  ITSM Monte Carlo Simulation - Time to Completion
+</h1>
+<div class="widget-body">
+    <label for="completionConfidenceInput">Confidence level (%):</label>
+    <input id="completionConfidenceInput" type="number" min="1" max="100" value="85" style="margin-left: 10px; width: 60px;" />
+    <p id="completionConfidenceDisplay">85% (0 days)</p>
+    <label for="tasksInput">Tasks (backlog size):</label>
+    <input id="tasksInput" type="number" min="1" value="50" style="margin-left: 10px; width: 60px;" />
+    <label for="completionIterationsInput">Iterations:</label>
+    <input id="completionIterationsInput" type="number" min="1" value="10000" style="margin-left: 10px; width: 80px;" />
+    <button id="completionReloadButton" style="margin-left: 10px;">Run Simulation</button>
+    <canvas id="completionChart" width="300" height="200"></canvas>
+    <label for="completionTableInput">Table</label>
+    <input id="completionTableInput" type="text" value="incident" style="margin-left: 10px; width: 80px;" />
+    <label for="completionQueryInput">Encoded Query</label>
+    <input id="completionQueryInput" type="text" value="active=false" style="margin-left: 10px; width: 200px;" />
+    <label for="completionDatefieldInput">Date field</label>
+    <input id="completionDatefieldInput" type="text" value="closed_at" style="margin-left: 10px; width: 80px;" />
+</div>
+]]></template>
+        <servicenow>false</servicenow>
+        <sys_class_name>sp_widget</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-03-20 00:00:00</sys_created_on>
+        <sys_id>b5235a37948856102ea1c596feaad3d1</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>Task Monte Carlo Days to Complete</sys_name>
+        <sys_package display_value="ITSM Monte Carlo Simulation" source="x_441470_itsm_mcs">fc54aade83c3d2102ea1c596feaad398</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="ITSM Monte Carlo Simulation">fc54aade83c3d2102ea1c596feaad398</sys_scope>
+        <sys_update_name>sp_widget_b5235a37948856102ea1c596feaad3d1</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-03-20 00:00:00</sys_updated_on>
+    </sp_widget>
+</record_update>
