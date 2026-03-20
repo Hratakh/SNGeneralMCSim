@@ -42,8 +42,8 @@ McSimUtil.prototype = {
             return a - b;
         });
 
-        var index = Math.ceil((1 - confidenceLevel / 100) * simulationResults.length) - 1;
-        return simulationResults[Math.max(0, index)];
+        var index = Math.floor((1 - confidenceLevel / 100) * simulationResults.length);
+        return simulationResults[Math.min(simulationResults.length - 1, Math.max(0, index))];
     },
 
     type: 'McSimUtil'
