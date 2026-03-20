@@ -2,196 +2,274 @@
     <sp_widget action="INSERT_OR_UPDATE">
         <category>custom</category>
         <client_script><![CDATA[api.controller = function ($scope) {
-    var canvas = document.getElementById('simulationChart');
-    var confidenceInput = document.getElementById('confidenceInput');
-    var confidenceDisplay = document.getElementById('confidenceDisplay');
-    var daysInput = document.getElementById('daysInput');
-    var iterationsInput = document.getElementById('iterationsInput');
-		var tableInput = document.getElementById('tableInput');
-		var queryInput = document.getElementById('queryInput');
-		var datefieldInput = document.getElementById('datefieldInput');
-    var reloadButton = document.getElementById('reloadButton');
+    // ── DOM references ────────────────────────────────────────────────────────
+    var tableInput       = document.getElementById('tableInput');
+    var queryInput       = document.getElementById('queryInput');
+    var datefieldInput   = document.getElementById('datefieldInput');
+    var confidenceInput  = document.getElementById('confidenceInput');
+    var iterationsInput  = document.getElementById('iterationsInput');
+    var daysInput        = document.getElementById('daysInput');
+    var tasksInput       = document.getElementById('tasksInput');
+    var runButton        = document.getElementById('runButton');
+    var daysLabel        = document.getElementById('daysLabel');
+    var tasksLabel       = document.getElementById('tasksLabel');
+    var throughputDisplay = document.getElementById('throughputConfidenceDisplay');
+    var completionDisplay = document.getElementById('completionConfidenceDisplay');
 
-    if (!canvas || !confidenceInput || !confidenceDisplay || !daysInput || !iterationsInput || !reloadButton) {
-        console.error("Elements not found!");
-        return;
-    }
+    if (!runButton) { console.error("Widget elements not found."); return; }
 
-    // Default parameters
-    $scope.confidenceValue = 85;
-    $scope.simulationDays = 14;
-    $scope.simulationIterations = 10000;
-		$scope.queryTable = 'incident';
-		$scope.queryEncoded = 'active=false';
-		$scope.dateField = 'closed_at';		
-	
-    var histogramData = $scope.data.histogramData || [];
-    var binWidth = $scope.data.binWidth || 1;
+    // ── State ─────────────────────────────────────────────────────────────────
+    var confidenceValue      = 85;
+    var throughputData       = $scope.data.throughputHistogramData || [];
+    var completionData       = $scope.data.completionHistogramData || [];
+    var throughputBinWidth   = $scope.data.throughputBinWidth || 1;
+    var completionBinWidth   = $scope.data.completionBinWidth || 1;
+    var throughputChart      = null;
+    var completionChart      = null;
 
-    if (histogramData.length === 0) {
-        console.error("No histogram data available.");
-        return;
-    }
+    // ── Chart renderers ───────────────────────────────────────────────────────
+    function renderThroughputChart(histData, confidence) {
+        histData.sort(function (a, b) { return a.throughput - b.throughput; });
 
-    var chartInstance = null; // Stores the current Chart.js instance
-
-    // Function to reload the chart
-    function reloadChart(confidenceLevel, histogramData, binWidth) {
-    // Sortiere die Histogrammdaten nach der Anzahl der Tasks
-    histogramData.sort(function (a, b) {
-        return a.throughput - b.throughput;
-    });
-
-    // Berechne das Perzentil (von rechts nach links)
-    var totalFrequency = histogramData.reduce(function (sum, item) {
-        return sum + item.frequency;
-    }, 0);
-
-    var cumulativeFrequency = 0;
-    var percentileTasks = null;
-
-    for (var i = histogramData.length - 1; i >= 0; i--) { // Von rechts nach links iterieren
-        cumulativeFrequency += histogramData[i].frequency;
-
-        if ((cumulativeFrequency / totalFrequency) >= (confidenceLevel / 100)) {
-            percentileTasks = histogramData[i].throughput;
-            break;
+        // Right-to-left: at least X tasks with confidence%
+        var total = histData.reduce(function (s, d) { return s + d.frequency; }, 0);
+        var cumulative = 0;
+        var percentile = null;
+        for (var i = histData.length - 1; i >= 0; i--) {
+            cumulative += histData[i].frequency;
+            if (cumulative / total >= confidence / 100) {
+                percentile = histData[i].throughput;
+                break;
+            }
         }
-    }
-			
-    // Update the confidence display
-    confidenceDisplay.textContent = confidenceLevel + "% (" + percentileTasks + " tasks)";
-			
-    // Zeichne das Diagramm
-    if (chartInstance) {
-        chartInstance.destroy();
-    }
 
-    chartInstance = new Chart(canvas.getContext('2d'), {
-        type: 'bar',
-        data: {
-            labels: histogramData.map(function (item) {
-                return item.throughput;
-            }),
-            datasets: [{
-                label: 'Number of Occurrences',
-                data: histogramData.map(function (item) {
-                    return item.frequency;
-                }),
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                borderColor: 'rgba(75, 192, 192, 1)',
-                borderWidth: 1,
-                barPercentage: 1.0,
-                categoryPercentage: 1.0
-            }]
-        },
-        options: {
-            plugins: {
-                annotation: {
-                    annotations: {
-                        confidenceLine: {
-                            type: 'line',
-                            xMin: percentileTasks,
-                            xMax: percentileTasks,
-                            borderColor: 'red',
-                            borderWidth: 2,
-                            label: {
-                                content: `${confidenceLevel}% Confidence (${percentileTasks} Tasks)`,
-                                enabled: true,
-                                position: 'start',
-                                backgroundColor: 'rgba(255, 99, 132, 0.8)',
-                                color: 'white',
-                                font: {
-                                    size: 12,
-                                    weight: 'bold'
-                                },
-                                padding: 6
+        throughputDisplay.textContent = confidence + '% (' + percentile + ' tasks)';
+
+        if (throughputChart) { throughputChart.destroy(); }
+        throughputChart = new Chart(
+            document.getElementById('throughputChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: histData.map(function (d) { return d.throughput; }),
+                datasets: [{
+                    label: 'Occurrences',
+                    data: histData.map(function (d) { return d.frequency; }),
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1,
+                    barPercentage: 1.0,
+                    categoryPercentage: 1.0
+                }]
+            },
+            options: {
+                plugins: {
+                    annotation: {
+                        annotations: {
+                            confidenceLine: {
+                                type: 'line',
+                                xMin: percentile,
+                                xMax: percentile,
+                                borderColor: 'red',
+                                borderWidth: 2,
+                                label: {
+                                    content: String(percentile),
+                                    enabled: true,
+                                    position: 'start',
+                                    backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                                    color: 'white',
+                                    font: { size: 12, weight: 'bold' },
+                                    padding: 6
+                                }
                             }
                         }
                     }
+                },
+                scales: {
+                    x: { type: 'linear', title: { display: true, text: 'Number of Tasks' } },
+                    y: { beginAtZero: true, title: { display: true, text: 'Frequency' } }
                 }
+            }
+        });
+    }
+
+    function renderCompletionChart(histData, confidence) {
+        histData.sort(function (a, b) { return a.days - b.days; });
+
+        // Left-to-right: finish within X days with confidence%
+        var total = histData.reduce(function (s, d) { return s + d.frequency; }, 0);
+        var cumulative = 0;
+        var percentile = null;
+        for (var i = 0; i < histData.length; i++) {
+            cumulative += histData[i].frequency;
+            if (cumulative / total >= confidence / 100) {
+                percentile = histData[i].days;
+                break;
+            }
+        }
+
+        completionDisplay.textContent = confidence + '% (' + percentile + ' days)';
+
+        if (completionChart) { completionChart.destroy(); }
+        completionChart = new Chart(
+            document.getElementById('completionChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: histData.map(function (d) { return d.days; }),
+                datasets: [{
+                    label: 'Occurrences',
+                    data: histData.map(function (d) { return d.frequency; }),
+                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                    borderColor: 'rgba(153, 102, 255, 1)',
+                    borderWidth: 1,
+                    barPercentage: 1.0,
+                    categoryPercentage: 1.0
+                }]
             },
-            scales: {
-                x: {
-                    type: 'linear',
-                    title: {
-                        display: true,
-                        text: 'Number of Tasks'
+            options: {
+                plugins: {
+                    annotation: {
+                        annotations: {
+                            confidenceLine: {
+                                type: 'line',
+                                xMin: percentile,
+                                xMax: percentile,
+                                borderColor: 'red',
+                                borderWidth: 2,
+                                label: {
+                                    content: String(percentile),
+                                    enabled: true,
+                                    position: 'start',
+                                    backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                                    color: 'white',
+                                    font: { size: 12, weight: 'bold' },
+                                    padding: 6
+                                }
+                            }
+                        }
                     }
                 },
-                y: {
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Frequency'
-                    }
+                scales: {
+                    x: { type: 'linear', title: { display: true, text: 'Number of Days' } },
+                    y: { beginAtZero: true, title: { display: true, text: 'Frequency' } }
                 }
             }
-        }
-    });
-}
+        });
+    }
 
-    // Event Listener for simulation parameters
-    reloadButton.addEventListener('click', function () {
-        var days = parseInt(daysInput.value, 10);
+    function renderBoth() {
+        if (throughputData.length > 0) { renderThroughputChart(throughputData, confidenceValue); }
+        if (completionData.length > 0) { renderCompletionChart(completionData, confidenceValue); }
+    }
+
+    // ── Run Simulation button ─────────────────────────────────────────────────
+    runButton.addEventListener('click', function () {
+        var days       = parseInt(daysInput.value, 10);
+        var tasks      = parseInt(tasksInput.value, 10);
         var iterations = parseInt(iterationsInput.value, 10);
-				var queryTable = tableInput.value;
-				var queryEncoded = queryInput.value;
-				var dateField = datefieldInput.value;
+        var confidence = parseInt(confidenceInput.value, 10);
 
-        if (isNaN(days) || days <= 0) {
-            alert("Please enter a valid number of days.");
-            return;
-        }
-        if (isNaN(iterations) || iterations <= 0) {
-            alert("Please enter a valid number of iterations.");
-            return;
-        }
+        if (isNaN(days)       || days <= 0)              { alert("Invalid days.");        return; }
+        if (isNaN(tasks)      || tasks <= 0)             { alert("Invalid tasks.");       return; }
+        if (isNaN(iterations) || iterations <= 0)        { alert("Invalid iterations.");  return; }
+        if (isNaN(confidence) || confidence < 1 || confidence > 100) { alert("Invalid confidence."); return; }
 
-        // Update simulation parameters
-        $scope.simulationDays = days;
-        $scope.simulationIterations = iterations;
-				$scope.queryTable = queryTable;
-				$scope.queryEncoded = queryEncoded;
-				$scope.dateField = dateField;
+        confidenceValue        = confidence;
+        daysLabel.textContent  = days;
+        tasksLabel.textContent = tasks;
 
-        // Call the server to recalculate the simulation data
         $scope.server.get({
-            days: $scope.simulationDays,
-            iterations: $scope.simulationIterations,
-						queryTable: $scope.queryTable,
-						queryEncoded: $scope.queryEncoded,
-						dateField: $scope.dateField
+            days:         days,
+            tasks:        tasks,
+            iterations:   iterations,
+            queryTable:   tableInput.value,
+            queryEncoded: queryInput.value,
+            dateField:    datefieldInput.value
         }).then(function (response) {
-            //console.log("Server response (after Run Simulation):", response);
-
-            // Update histogram data
-            histogramData = response.data.histogramData || [];
-            binWidth = response.data.binWidth || 1;
-            if (histogramData.length === 0) {
-                console.error("Received empty histogram data!");
-            }
-            reloadChart($scope.confidenceValue, histogramData, binWidth);
+            throughputData     = response.data.throughputHistogramData || [];
+            completionData     = response.data.completionHistogramData || [];
+            throughputBinWidth = response.data.throughputBinWidth || 1;
+            completionBinWidth = response.data.completionBinWidth || 1;
+            renderBoth();
         });
     });
 
-    // Initial chart load
-    reloadChart($scope.confidenceValue, histogramData, binWidth);
-
-    // Event Listener for confidence input
+    // ── Confidence slider updates charts instantly without re-simulation ───────
     confidenceInput.addEventListener('input', function () {
         var value = parseInt(confidenceInput.value, 10);
         if (value >= 1 && value <= 100) {
-            $scope.confidenceValue = value;
-            reloadChart($scope.confidenceValue, histogramData, binWidth);
-        } else {
-            confidenceDisplay.textContent = "Please enter a value between 1 and 100.";
+            confidenceValue = value;
+            renderBoth();
         }
     });
+
+    // ── Initial render with server data ───────────────────────────────────────
+    renderBoth();
 };
 ]]></client_script>
         <controller_as>c</controller_as>
-        <css/>
+        <css><![CDATA[.mc-header {
+    background: #f4f4f4;
+    border-bottom: 1px solid #ddd;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+}
+.mc-header h1 {
+    margin: 0 0 12px 0;
+    font-size: 20px;
+}
+.mc-inputs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+}
+.mc-inputs .mc-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.mc-inputs label {
+    font-size: 12px;
+    color: #555;
+    margin: 0;
+}
+.mc-inputs input {
+    padding: 4px 6px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+.mc-inputs input[type=number] { width: 70px; }
+.mc-inputs input[type=text]   { width: 130px; }
+#queryInput                   { width: 200px; }
+.mc-run-btn {
+    padding: 6px 18px;
+    background: #176BCC;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 14px;
+    align-self: flex-end;
+}
+.mc-run-btn:hover { background: #1258a8; }
+.mc-charts {
+    display: flex;
+    gap: 20px;
+}
+.mc-chart-panel {
+    flex: 1;
+    min-width: 0;
+}
+.mc-chart-panel h3 {
+    font-size: 15px;
+    margin-bottom: 4px;
+}
+.mc-confidence-label {
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 8px;
+}
+]]></css>
         <data_table>sp_instance</data_table>
         <demo_data/>
         <description/>
@@ -206,103 +284,124 @@
         <public>false</public>
         <roles/>
         <script><![CDATA[(function () {
-    // Eingabewerte aus der Client-Seite
-    var days = input && input.days ? parseInt(input.days, 10) : 14; // Standard: 14 Tage
-    var iterations = input && input.iterations ? parseInt(input.iterations, 10) : 10000; // Standard: 10.000 Iterationen
-    var confidenceLevel = input && input.confidence ? parseFloat(input.confidence) : 85; // Standard: 85%
-		var queryTable = input && input.queryTable ? input.queryTable : 'incident';
-		var queryEncoded = input && input.queryEncoded ? input.queryEncoded : 'active=false';
-		var dateField = input && input.dateField ? input.dateField : 'closed_at';
-	
-    // Initialisiere Hilfsklassen
+    var days         = input && input.days         ? parseInt(input.days, 10)         : 14;
+    var tasks        = input && input.tasks        ? parseInt(input.tasks, 10)        : 50;
+    var iterations   = input && input.iterations   ? parseInt(input.iterations, 10)   : 10000;
+    var queryTable   = input && input.queryTable   ? input.queryTable                 : 'incident';
+    var queryEncoded = input && input.queryEncoded ? input.queryEncoded               : 'active=false';
+    var dateField    = input && input.dateField    ? input.dateField                  : 'closed_at';
+
     var taskDataUtil = new McTaskUtil();
     var monteCarloSim = new McSimUtil();
 
-    // Hole den täglichen Durchsatz aus den historischen Daten
-    var dailyThroughput = taskDataUtil.getDailyThroughput(queryTable,dateField,queryEncoded);
+    var dailyThroughput = taskDataUtil.getDailyThroughput(queryTable, dateField, queryEncoded);
 
     if (dailyThroughput.length === 0) {
         data.error = "No historical data available.";
         return;
     }
 
-    // Monte-Carlo-Simulation durchführen
-    var simulationResults = monteCarloSim.simulateThroughput(days, iterations, dailyThroughput);
+    // Shared histogram builder (Sturges binning)
+    function buildHistogram(results, valueKey) {
+        var sorted = results.slice().sort(function (a, b) { return a - b; });
+        var minVal   = sorted[0];
+        var maxVal   = sorted[sorted.length - 1];
+        var numBins  = Math.ceil(1 + Math.log(results.length) / Math.log(2));
+        var binWidth = Math.max(1, Math.ceil((maxVal - minVal + 1) / numBins));
 
-    // Erstelle das Histogramm mit Sturges-Binning für eine glatte Glockenkurve.
-    // Einzelne Integer-Bins bei 10.000 Iterationen erzeugen schmale Balken mit Lücken,
-    // die optisch wie mehrere Peaks wirken. Sturges' Regel: k = 1 + log2(n) Bins.
-    var sortedResults = simulationResults.slice().sort(function(a, b) { return a - b; });
-    var minResult = sortedResults[0];
-    var maxResult = sortedResults[sortedResults.length - 1];
-    var numBins = Math.ceil(1 + Math.log(iterations) / Math.log(2));
-    var binWidth = Math.max(1, Math.ceil((maxResult - minResult + 1) / numBins));
+        var histogram = {};
+        for (var k = 0; minVal + k * binWidth <= maxVal; k++) {
+            histogram[minVal + k * binWidth] = 0;
+        }
+        for (var r = 0; r < results.length; r++) {
+            var binKey = minVal + Math.floor((results[r] - minVal) / binWidth) * binWidth;
+            histogram[binKey]++;
+        }
 
-    // Alle Bins mit 0 vorbelegen, damit keine Lücken auf der X-Achse entstehen
-    var histogram = {};
-    for (var k = 0; minResult + k * binWidth <= maxResult; k++) {
-        histogram[minResult + k * binWidth] = 0;
+        var histData = Object.keys(histogram).map(function (key) {
+            var item = { frequency: histogram[key] };
+            item[valueKey] = parseInt(key, 10);
+            return item;
+        });
+        histData.sort(function (a, b) { return a[valueKey] - b[valueKey]; });
+        return { data: histData, binWidth: binWidth };
     }
 
-    // Simulationsergebnisse den Bins zuweisen
-    for (var r = 0; r < simulationResults.length; r++) {
-        var binKey = minResult + Math.floor((simulationResults[r] - minResult) / binWidth) * binWidth;
-        histogram[binKey]++;
-    }
+    // Simulation 1: How many tasks in X days?
+    var throughputResults = monteCarloSim.simulateThroughput(days, iterations, dailyThroughput);
+    var throughputHist    = buildHistogram(throughputResults, 'throughput');
+    data.throughputHistogramData = throughputHist.data;
+    data.throughputBinWidth      = throughputHist.binWidth;
 
-    // Formatieren der Histogrammdaten für den Client
-    data.histogramData = Object.keys(histogram).map(function (key) {
-        return {
-            throughput: parseInt(key, 10),
-            frequency: histogram[key]
-        };
-    });
-
-    // Sortiere die Histogrammdaten nach Durchsatz
-    data.histogramData.sort(function (a, b) {
-        return a.throughput - b.throughput;
-    });
-
-    // Binbreite an den Client weitergeben (für korrekte Balkenbreite im Chart)
-    data.binWidth = binWidth;
-
-    // Debugging: Optionale Protokollierung
-    gs.info("Simulation Results (first 10): " + JSON.stringify(simulationResults.slice(0, 10)));
-    gs.info("Histogram Data: " + JSON.stringify(data.histogramData));
+    // Simulation 2: How many days to complete X tasks?
+    var completionResults = monteCarloSim.simulateDaysToComplete(tasks, iterations, dailyThroughput);
+    var completionHist    = buildHistogram(completionResults, 'days');
+    data.completionHistogramData = completionHist.data;
+    data.completionBinWidth      = completionHist.binWidth;
 })();
 ]]></script>
+        <template><![CDATA[<!-- ── Shared header row ─────────────────────────────────────────────────── -->
+<div class="mc-header">
+    <h1>ITSM Monte Carlo Simulation</h1>
+    <div class="mc-inputs">
+        <div class="mc-field">
+            <label>Table</label>
+            <input id="tableInput" type="text" value="incident" />
+        </div>
+        <div class="mc-field">
+            <label>Encoded Query</label>
+            <input id="queryInput" type="text" value="active=false" />
+        </div>
+        <div class="mc-field">
+            <label>Date Field</label>
+            <input id="datefieldInput" type="text" value="closed_at" />
+        </div>
+        <div class="mc-field">
+            <label>Confidence (%)</label>
+            <input id="confidenceInput" type="number" min="1" max="100" value="85" />
+        </div>
+        <div class="mc-field">
+            <label>Iterations</label>
+            <input id="iterationsInput" type="number" min="1" value="10000" />
+        </div>
+        <div class="mc-field">
+            <label>Days (Widget 1)</label>
+            <input id="daysInput" type="number" min="1" value="14" />
+        </div>
+        <div class="mc-field">
+            <label>Tasks / Backlog (Widget 2)</label>
+            <input id="tasksInput" type="number" min="1" value="50" />
+        </div>
+        <button id="runButton" class="mc-run-btn">Run Simulation</button>
+    </div>
+</div>
+
+<!-- ── Two charts side by side ──────────────────────────────────────────────── -->
+<div class="mc-charts">
+    <div class="mc-chart-panel">
+        <h3>Throughput: Tasks in <span id="daysLabel">14</span> Days</h3>
+        <p class="mc-confidence-label" id="throughputConfidenceDisplay">—</p>
+        <canvas id="throughputChart" height="250"></canvas>
+    </div>
+    <div class="mc-chart-panel">
+        <h3>Time to Complete <span id="tasksLabel">50</span> Tasks</h3>
+        <p class="mc-confidence-label" id="completionConfidenceDisplay">—</p>
+        <canvas id="completionChart" height="250"></canvas>
+    </div>
+</div>
+]]></template>
         <servicenow>false</servicenow>
         <sys_class_name>sp_widget</sys_class_name>
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2025-01-15 14:48:34</sys_created_on>
         <sys_id>c6146b26838756102ea1c596feaad3c0</sys_id>
-        <sys_mod_count>11</sys_mod_count>
+        <sys_mod_count>12</sys_mod_count>
         <sys_name>Task Monte Carlo Sim</sys_name>
         <sys_package display_value="ITSM Monte Carlo Simulation" source="x_441470_itsm_mcs">fc54aade83c3d2102ea1c596feaad398</sys_package>
         <sys_policy/>
         <sys_scope display_value="ITSM Monte Carlo Simulation">fc54aade83c3d2102ea1c596feaad398</sys_scope>
         <sys_update_name>sp_widget_c6146b26838756102ea1c596feaad3c0</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-02-02 11:24:04</sys_updated_on>
-        <template><![CDATA[<h1>
-  ITSM Monte Carlo Simulation
-</h1>
-<div class="widget-body">
-    <label for="confidenceInput">Confidence level (%):</label>
-    <input id="confidenceInput" type="number" min="1" max="100" value="85" style="margin-left: 10px; width: 60px;" />
-    <p id="confidenceDisplay">85% (0 stories)</p>
-    <label for="daysInput">Days:</label>
-    <input id="daysInput" type="number" min="1" value="14" style="margin-left: 10px; width: 60px;" />
-    <label for="iterationsInput">Iterations:</label>
-    <input id="iterationsInput" type="number" min="1" value="10000" style="margin-left: 10px; width: 80px;" />
-    <button id="reloadButton" style="margin-left: 10px;">Run Simulation</button>
-    <canvas id="simulationChart" width="300" height="200"></canvas>
-    <label for="tableInput">Table</label>
-		<input id="tableInput" type="text" value="incident" style="margin-left: 10px; width: 80px;" />
-    <label for="queryInput">Encoded Query</label>
-		<input id="queryInput" type="text" value="active=false" style="margin-left: 10px; width: 200px;" />
-  	<label for="datefieldInput">Date field</label>
-		<input id="datefieldInput" type="text" value="closed_at" style="margin-left: 10px; width: 80px;" />
-</div>]]></template>
+        <sys_updated_on>2026-03-20 00:00:00</sys_updated_on>
     </sp_widget>
 </record_update>

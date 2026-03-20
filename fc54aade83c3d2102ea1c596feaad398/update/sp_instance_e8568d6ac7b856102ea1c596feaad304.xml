@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?><record_update table="sp_instance">
     <sp_instance action="INSERT_OR_UPDATE">
-        <active>true</active>
+        <active>false</active>
         <class_name/>
         <color>default</color>
         <css/>
