@@ -26,6 +26,7 @@
 		$scope.dateField = 'closed_at';		
 	
     var histogramData = $scope.data.histogramData || [];
+    var binWidth = $scope.data.binWidth || 1;
 
     if (histogramData.length === 0) {
         console.error("No histogram data available.");
@@ -35,7 +36,7 @@
     var chartInstance = null; // Stores the current Chart.js instance
 
     // Function to reload the chart
-    function reloadChart(confidenceLevel, histogramData) {
+    function reloadChart(confidenceLevel, histogramData, binWidth) {
     // Sortiere die Histogrammdaten nach der Anzahl der Tasks
     histogramData.sort(function (a, b) {
         return a.throughput - b.throughput;
@@ -79,7 +80,9 @@
                 }),
                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
                 borderColor: 'rgba(75, 192, 192, 1)',
-                borderWidth: 1
+                borderWidth: 1,
+                barPercentage: 1.0,
+                categoryPercentage: 1.0
             }]
         },
         options: {
@@ -164,22 +167,23 @@
 
             // Update histogram data
             histogramData = response.data.histogramData || [];
+            binWidth = response.data.binWidth || 1;
             if (histogramData.length === 0) {
                 console.error("Received empty histogram data!");
-            } 
-            reloadChart($scope.confidenceValue, histogramData);
+            }
+            reloadChart($scope.confidenceValue, histogramData, binWidth);
         });
     });
 
     // Initial chart load
-    reloadChart($scope.confidenceValue, histogramData);
+    reloadChart($scope.confidenceValue, histogramData, binWidth);
 
     // Event Listener for confidence input
     confidenceInput.addEventListener('input', function () {
         var value = parseInt(confidenceInput.value, 10);
         if (value >= 1 && value <= 100) {
             $scope.confidenceValue = value;
-            reloadChart($scope.confidenceValue, histogramData);
+            reloadChart($scope.confidenceValue, histogramData, binWidth);
         } else {
             confidenceDisplay.textContent = "Please enter a value between 1 and 100.";
         }
@@ -225,11 +229,26 @@
     // Monte-Carlo-Simulation durchführen
     var simulationResults = monteCarloSim.simulateThroughput(days, iterations, dailyThroughput);
 
-    // Erstelle das Histogramm
-    var histogram = simulationResults.reduce(function (acc, throughput) {
-        acc[throughput] = (acc[throughput] || 0) + 1;
-        return acc;
-    }, {});
+    // Erstelle das Histogramm mit Sturges-Binning für eine glatte Glockenkurve.
+    // Einzelne Integer-Bins bei 10.000 Iterationen erzeugen schmale Balken mit Lücken,
+    // die optisch wie mehrere Peaks wirken. Sturges' Regel: k = 1 + log2(n) Bins.
+    var sortedResults = simulationResults.slice().sort(function(a, b) { return a - b; });
+    var minResult = sortedResults[0];
+    var maxResult = sortedResults[sortedResults.length - 1];
+    var numBins = Math.ceil(1 + Math.log(iterations) / Math.log(2));
+    var binWidth = Math.max(1, Math.ceil((maxResult - minResult + 1) / numBins));
+
+    // Alle Bins mit 0 vorbelegen, damit keine Lücken auf der X-Achse entstehen
+    var histogram = {};
+    for (var k = 0; minResult + k * binWidth <= maxResult; k++) {
+        histogram[minResult + k * binWidth] = 0;
+    }
+
+    // Simulationsergebnisse den Bins zuweisen
+    for (var r = 0; r < simulationResults.length; r++) {
+        var binKey = minResult + Math.floor((simulationResults[r] - minResult) / binWidth) * binWidth;
+        histogram[binKey]++;
+    }
 
     // Formatieren der Histogrammdaten für den Client
     data.histogramData = Object.keys(histogram).map(function (key) {
@@ -243,6 +262,9 @@
     data.histogramData.sort(function (a, b) {
         return a.throughput - b.throughput;
     });
+
+    // Binbreite an den Client weitergeben (für korrekte Balkenbreite im Chart)
+    data.binWidth = binWidth;
 
     // Debugging: Optionale Protokollierung
     gs.info("Simulation Results (first 10): " + JSON.stringify(simulationResults.slice(0, 10)));

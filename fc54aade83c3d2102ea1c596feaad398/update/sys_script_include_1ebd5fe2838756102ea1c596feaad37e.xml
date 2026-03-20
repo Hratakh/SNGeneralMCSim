@@ -53,7 +53,7 @@ McTaskUtil.prototype = {
             }
         }
 
-        // Konvertiere die Map in ein Array
+        // Konvertiere die Map in ein Array (inkl. Tage mit 0 Durchsatz wie Wochenenden)
         var dailyThroughput = Object.values(throughputMap);
 
         // Debugging: Ausgabe der täglichen Durchsatzdaten
