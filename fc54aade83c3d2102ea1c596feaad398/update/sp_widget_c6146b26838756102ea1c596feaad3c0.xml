@@ -225,9 +225,6 @@
     // Monte-Carlo-Simulation durchführen
     var simulationResults = monteCarloSim.simulateThroughput(days, iterations, dailyThroughput);
 
-    // Berechne das Perzentil basierend auf dem Confidence Level
-    var percentileTasks = monteCarloSim.calculatePercentile(simulationResults, confidenceLevel);
-
     // Erstelle das Histogramm
     var histogram = simulationResults.reduce(function (acc, throughput) {
         acc[throughput] = (acc[throughput] || 0) + 1;
@@ -247,13 +244,9 @@
         return a.throughput - b.throughput;
     });
 
-    // Füge das Perzentil zur Rückgabe hinzu
-    data.percentileTasks = percentileTasks;
-
     // Debugging: Optionale Protokollierung
     gs.info("Simulation Results (first 10): " + JSON.stringify(simulationResults.slice(0, 10)));
     gs.info("Histogram Data: " + JSON.stringify(data.histogramData));
-    gs.info("85% Confidence: " + percentileTasks + " stories can be completed.");
 })();
 ]]></script>
         <servicenow>false</servicenow>

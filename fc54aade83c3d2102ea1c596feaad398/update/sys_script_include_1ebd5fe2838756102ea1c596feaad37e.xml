@@ -41,15 +41,12 @@ McTaskUtil.prototype = {
             currentDate.addDaysLocalTime(1);
         }
 
-        var throughput = [];
         var grTask = new GlideRecord(tableName);
         grTask.addQuery(dateField, '!=', ''); // Nur Stories mit definiertem Enddatum
-        grTask.addEncodedQuery(encodedQuery) ;  
+        grTask.addEncodedQuery(encodedQuery) ;
         grTask.query();
 
-        var dailyCounts = {};
-
-         while (grTask.next()) {
+        while (grTask.next()) {
             var targetDate = new GlideDateTime(grTask.getValue(dateField)).getLocalDate();
             if (throughputMap[targetDate] !== undefined) {
                 throughputMap[targetDate] += 1; // Inkrementiere den Durchsatz für diesen Tag
