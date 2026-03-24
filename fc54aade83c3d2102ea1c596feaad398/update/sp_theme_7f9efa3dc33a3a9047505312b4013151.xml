@@ -10,19 +10,20 @@ $gray: lighten($gray-base, 29.02%);&#13;
 &#13;
 ////// Branding variables //////&#13;
 // should always end with !default and no other variable should have !default&#13;
-$brand-primary: #1F8476 !default;&#13;
-$body-bg: #ffffff !default;&#13;
-$brand-success: #48C891 !default;&#13;
+// ── Aligned with widget header: dark navy #1a3a5c → #1f5088 ──────────────&#13;
+$brand-primary: #1f5088 !default;&#13;
+$body-bg: #f0f4f8 !default;&#13;
+$brand-success: #27ae60 !default;&#13;
 $state-success-text: darken(desaturate(adjust-hue($brand-success, 3), 15.64%), 34.31) !default;&#13;
-$sp-navbar-divider-color: #5A7F71 !default;&#13;
+$sp-navbar-divider-color: #2d5580 !default;&#13;
 $text-color: $gray-dark !default;&#13;
-$navbar-inverse-link-hover-color: #303636 !default;&#13;
-$navbar-inverse-bg: #293e40 !default;&#13;
+$navbar-inverse-link-hover-color: #ffffff !default;&#13;
+$navbar-inverse-bg: #1a3a5c !default;&#13;
 $brand-warning: #DFD139 !default;&#13;
 $brand-danger: #C83C36 !default;&#13;
 $sp-tagline-color: #ffffff !default;&#13;
 $navbar-inverse-link-active-color: $sp-tagline-color !default;&#13;
-$navbar-inverse-link-color: #A7B0B2 !default;&#13;
+$navbar-inverse-link-color: #a8c0d8 !default;&#13;
 $brand-info: #6ABECF !default;&#13;
 $link-color: $brand-primary !default;&#13;
 $sp-logo-margin-x: 15px !default;&#13;
@@ -33,21 +34,21 @@ $text-muted: $gray-light !default;&#13;
 $link-hover-decoration: underline !default;&#13;
 &#13;
 // La Jolla variables&#13;
-$brand-primary-dark: #1F8476 !default;&#13;
-$brand-primary-darker: #165C53 !default;&#13;
-$brand-primary-light: #5FBAA4 !default;&#13;
-$brand-primary-lighter: #B8E0D7 !default;&#13;
-$brand-primary-lightest: #EEF8F8 !default;&#13;
+$brand-primary-dark: #1a3a5c !default;&#13;
+$brand-primary-darker: #112233 !default;&#13;
+$brand-primary-light: #3d72ad !default;&#13;
+$brand-primary-lighter: #a3c0e0 !default;&#13;
+$brand-primary-lightest: #eef3fa !default;&#13;
 $dropdown-link-disabled-color: $gray-light;&#13;
 $link-hover-color: darken(desaturate(adjust-hue($link-color, 1), 0.42%), 16.67);&#13;
-$navbar-inverse-link-active-bg: #213234;&#13;
-$navbar-inverse-link-hover-bg: #22B9A5;&#13;
+$navbar-inverse-link-active-bg: #152d47;&#13;
+$navbar-inverse-link-hover-bg: #1f5088;&#13;
 $panel-primary-border: $brand-primary ;&#13;
 $panel-primary-heading-bg: $brand-primary ;&#13;
 $panel-primary-text: #ffffff;&#13;
 $primary: $brand-primary;&#13;
-$input-border-focus: #1f8476;&#13;
-$quicklinks-background: #EDF7F5;&#13;
+$input-border-focus: #1f5088;&#13;
+$quicklinks-background: #eef3fa;&#13;
 $btn-success-bg: $brand-success;&#13;
 $btn-default-color: #2e2e2e;&#13;
 $btn-primary-color: #ffffff;&#13;
@@ -94,7 +95,7 @@ $input-border-placeholder: white;&#13;
 &#13;
 // Service Catalog panel hover highlight&#13;
 $panel-list-item: lighten(desaturate(adjust-hue($panel-primary-heading-bg, -6), 20.79%), 58.04);&#13;
-$panel-primary-heading-bg: #47a992;&#13;
+$panel-primary-heading-bg: #1f5088;&#13;
 &#13;
 $multiple-issues-color: #7070B3;&#13;
 $no-issue-color: lighten($brand-success, 40%);&#13;
@@ -174,14 +175,14 @@ $accessible-placeholder-gray: #565656;&#13;
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2026-02-02 10:16:00</sys_created_on>
         <sys_id>7f9efa3dc33a3a9047505312b4013151</sys_id>
-        <sys_mod_count>1</sys_mod_count>
+        <sys_mod_count>2</sys_mod_count>
         <sys_name>ITSM MCS Theme</sys_name>
         <sys_package display_value="ITSM Monte Carlo Simulation" source="x_441470_itsm_mcs">fc54aade83c3d2102ea1c596feaad398</sys_package>
         <sys_policy/>
         <sys_scope display_value="ITSM Monte Carlo Simulation">fc54aade83c3d2102ea1c596feaad398</sys_scope>
         <sys_update_name>sp_theme_7f9efa3dc33a3a9047505312b4013151</sys_update_name>
         <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2026-02-02 10:16:10</sys_updated_on>
+        <sys_updated_on>2026-03-24 00:00:00</sys_updated_on>
         <turn_off_scss_compilation>false</turn_off_scss_compilation>
     </sp_theme>
 </record_update>
