@@ -4,7 +4,9 @@
         <client_script><![CDATA[api.controller = function ($scope) {
 
     // ── DOM references ────────────────────────────────────────────────────────
-    var tableSelect       = document.getElementById('tableInput');
+    var tableSearch       = document.getElementById('tableSearch');
+    var tableHidden       = document.getElementById('tableInput');
+    var tableDropdown     = document.getElementById('tableDropdown');
     var queryInput        = document.getElementById('queryInput');
     var datefieldInput    = document.getElementById('datefieldInput');
     var confidenceInput   = document.getElementById('confidenceInput');
@@ -21,15 +23,97 @@
 
     if (!runButton) { console.error('MC widget: DOM not ready'); return; }
 
-    // ── Populate table dropdown (initial load only) ───────────────────────────
-    var taskTables = $scope.data.taskTables || [];
-    taskTables.forEach(function (t) {
-        var opt = document.createElement('option');
-        opt.value = t.name;
-        opt.textContent = t.label;
-        if (t.name === 'incident') { opt.selected = true; }
-        tableSelect.appendChild(opt);
+    // ── Typeahead for table selection ─────────────────────────────────────────
+    var taskTables         = $scope.data.taskTables || [];
+    var typeaheadHighlight = -1;
+
+    function filterTables(query) {
+        if (!query) { return taskTables.slice(0, 8); }
+        var q = query.toLowerCase();
+        return taskTables.filter(function (t) {
+            return t.label.toLowerCase().indexOf(q) !== -1 ||
+                   t.name.toLowerCase().indexOf(q)  !== -1;
+        });
+    }
+
+    function showDropdown(items) {
+        typeaheadHighlight = -1;
+        tableDropdown.innerHTML = '';
+        var limit = Math.min(items.length, 10);
+        for (var i = 0; i < limit; i++) {
+            (function (t) {
+                var el = document.createElement('div');
+                el.className    = 'mc-typeahead-item';
+                el.textContent  = t.label;
+                el.dataset.name = t.name;
+                el.addEventListener('mousedown', function (e) {
+                    e.preventDefault(); // keep focus so blur doesn't fire first
+                    pickTable(t);
+                });
+                tableDropdown.appendChild(el);
+            })(items[i]);
+        }
+        tableDropdown.style.display = limit > 0 ? 'block' : 'none';
+    }
+
+    function highlightDropdownItem(index) {
+        var items = tableDropdown.querySelectorAll('.mc-typeahead-item');
+        Array.prototype.forEach.call(items, function (el, i) {
+            el.classList.toggle('active', i === index);
+        });
+    }
+
+    function pickTable(t) {
+        tableSearch.value  = t.label;
+        tableHidden.value  = t.name;
+        tableDropdown.style.display = 'none';
+        typeaheadHighlight = -1;
+    }
+
+    tableSearch.addEventListener('focus', function () {
+        showDropdown(filterTables(tableSearch.value));
     });
+
+    tableSearch.addEventListener('input', function () {
+        showDropdown(filterTables(tableSearch.value));
+    });
+
+    tableSearch.addEventListener('blur', function () {
+        // Allow mousedown on item to fire first, then close
+        setTimeout(function () {
+            tableDropdown.style.display = 'none';
+            // Restore label if user left the field without picking
+            var match = taskTables.find(function (t) { return t.name === tableHidden.value; });
+            if (match) { tableSearch.value = match.label; }
+        }, 200);
+    });
+
+    tableSearch.addEventListener('keydown', function (e) {
+        var items = tableDropdown.querySelectorAll('.mc-typeahead-item');
+        if (e.key === 'ArrowDown') {
+            typeaheadHighlight = Math.min(typeaheadHighlight + 1, items.length - 1);
+            highlightDropdownItem(typeaheadHighlight);
+            e.preventDefault();
+        } else if (e.key === 'ArrowUp') {
+            typeaheadHighlight = Math.max(typeaheadHighlight - 1, -1);
+            highlightDropdownItem(typeaheadHighlight);
+            e.preventDefault();
+        } else if (e.key === 'Enter') {
+            if (typeaheadHighlight >= 0 && items[typeaheadHighlight]) {
+                var el = items[typeaheadHighlight];
+                pickTable({ name: el.dataset.name, label: el.textContent });
+            }
+            e.preventDefault();
+        } else if (e.key === 'Escape') {
+            tableDropdown.style.display = 'none';
+            typeaheadHighlight = -1;
+        }
+    });
+
+    // Set initial display label from default hidden value
+    var defaultTable = taskTables.find(function (t) { return t.name === tableHidden.value; });
+    if (defaultTable) { tableSearch.value = defaultTable.label; }
+    else if (taskTables.length > 0) { pickTable(taskTables[0]); }
 
     // ── State ─────────────────────────────────────────────────────────────────
     var confidenceValue    = 85;
@@ -306,7 +390,7 @@
 
         $scope.server.get({
             days: days, tasks: tasks, iterations: iterations,
-            queryTable:   tableSelect.value,
+            queryTable:   tableHidden.value,
             queryEncoded: queryInput.value,
             dateField:    datefieldInput.value
         }).then(function (response) {
@@ -493,6 +577,54 @@
     margin: 0 0 12px 0;
     font-variant-numeric: tabular-nums;
 }
+
+/* ── Typeahead ───────────────────────────────────────────────────────────── */
+.mc-typeahead {
+    position: relative;
+}
+
+#tableSearch {
+    width: 190px;
+}
+
+.mc-typeahead-list {
+    display: none;
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    min-width: 230px;
+    max-height: 220px;
+    overflow-y: auto;
+    background: #162f4a;
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 4px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    z-index: 9999;
+    /* Custom scrollbar */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.2) transparent;
+}
+
+.mc-typeahead-list::-webkit-scrollbar       { width: 4px; }
+.mc-typeahead-list::-webkit-scrollbar-track { background: transparent; }
+.mc-typeahead-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+
+.mc-typeahead-item {
+    padding: 8px 11px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.82);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background 0.1s;
+}
+
+.mc-typeahead-item:hover,
+.mc-typeahead-item.active {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+}
 ]]></css>
         <data_table>sp_instance</data_table>
         <demo_data/>
@@ -636,9 +768,12 @@
 
             <div class="mc-field">
                 <label>Table</label>
-                <select id="tableInput">
-                    <!-- populated from server data via client script -->
-                </select>
+                <div class="mc-typeahead">
+                    <input id="tableSearch" type="text" autocomplete="off"
+                           spellcheck="false" placeholder="Search tables&hellip;" />
+                    <input id="tableInput" type="hidden" value="incident" />
+                    <div id="tableDropdown" class="mc-typeahead-list"></div>
+                </div>
             </div>
 
             <div class="mc-field">
