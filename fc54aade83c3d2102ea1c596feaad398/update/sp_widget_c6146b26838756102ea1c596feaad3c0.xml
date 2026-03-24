@@ -14,9 +14,6 @@
     var daysInput         = document.getElementById('daysInput');
     var tasksInput        = document.getElementById('tasksInput');
     var runButton         = document.getElementById('runButton');
-    var daysLabel         = document.getElementById('daysLabel');
-    var tasksLabel        = document.getElementById('tasksLabel');
-    var tasksLabelCone    = document.getElementById('tasksLabelCone');
     var throughputDisplay = document.getElementById('throughputConfidenceDisplay');
     var completionDisplay = document.getElementById('completionConfidenceDisplay');
     var errorBanner       = document.getElementById('mc-error');
@@ -66,6 +63,7 @@
     function pickTable(t) {
         tableSearch.value  = t.label;
         tableHidden.value  = t.name;
+        tableLabel         = t.label;
         tableDropdown.style.display = 'none';
         typeaheadHighlight = -1;
         loadDateFields(t.name); // refresh date fields for the newly selected table
@@ -113,7 +111,7 @@
 
     // Set initial display label from default hidden value
     var defaultTable = taskTables.find(function (t) { return t.name === tableHidden.value; });
-    if (defaultTable) { tableSearch.value = defaultTable.label; }
+    if (defaultTable) { tableSearch.value = defaultTable.label; tableLabel = defaultTable.label; }
     else if (taskTables.length > 0) { pickTable(taskTables[0]); }
 
     // ── Date field select ─────────────────────────────────────────────────────
@@ -138,6 +136,8 @@
         if (!datefieldSelect.value && fields.length > 0) {
             datefieldSelect.value = fields[0].name;
         }
+        var selOpt = datefieldSelect.options[datefieldSelect.selectedIndex];
+        dateFieldLabel = selOpt ? selOpt.textContent : '';
     }
 
     // Called every time the user selects a different table from the typeahead.
@@ -161,10 +161,17 @@
     // Populate from server data already returned on initial page load
     populateDateFields($scope.data.dateFields || [], 'closed_at');
 
+    datefieldSelect.addEventListener('change', function () {
+        var selOpt = datefieldSelect.options[datefieldSelect.selectedIndex];
+        dateFieldLabel = selOpt ? selOpt.textContent : '';
+    });
+
     // ── State ─────────────────────────────────────────────────────────────────
     var confidenceValue    = 85;
     var daysValue          = 14;
     var tasksValue         = 50;
+    var tableLabel         = '';
+    var dateFieldLabel     = '';
     var throughputData     = $scope.data.throughputHistogramData || [];
     var completionData     = $scope.data.completionHistogramData || [];
     var throughputConeData = $scope.data.throughputConeData      || null;
@@ -225,11 +232,26 @@
         };
     }
 
+    // ── Context labels (derived from selected table + date field) ─────────────
+    function buildContext() {
+        var tbl   = tableLabel    || 'Record';
+        var field = (dateFieldLabel || 'processed').toLowerCase();
+        var noun  = tbl + ' records ' + field;
+        return {
+            noun:             noun,
+            throughputH3:     tbl + ' records ' + field + ' in ' + daysValue + ' days',
+            completionH3:     'Days until ' + tasksValue + ' ' + tbl + ' records ' + field,
+            throughputConeH3: 'Throughput trajectory (' + tbl + ' ' + field + ')',
+            completionConeH3: 'Progress toward ' + tasksValue + ' ' + tbl + ' records ' + field,
+            coneY:            'Cumulative ' + tbl + ' records ' + field
+        };
+    }
+
     // ── Histogram renderers ───────────────────────────────────────────────────
-    function renderThroughputChart(histData, confidence) {
+    function renderThroughputChart(histData, confidence, ctx) {
         histData.sort(function (a, b) { return a.throughput - b.throughput; });
         var pct = calcThroughputPct(histData, confidence);
-        throughputDisplay.textContent = confidence + '% confidence: \u2265\u00a0' + pct + ' tasks';
+        throughputDisplay.textContent = confidence + '% confidence \u2014 \u2265\u00a0' + pct + ' ' + ctx.noun;
         if (chartThroughput) { chartThroughput.destroy(); }
         chartThroughput = new Chart(
             document.getElementById('throughputChart').getContext('2d'), {
@@ -250,7 +272,7 @@
                     annotation: { annotations: { cl: verticalLine(pct) } }
                 },
                 scales: {
-                    x: { type: 'linear', title: { display: true, text: 'Tasks completed' },
+                    x: { type: 'linear', title: { display: true, text: ctx.noun },
                          grid: { color: 'rgba(0,0,0,0.05)' } },
                     y: { beginAtZero: true, title: { display: true, text: 'Simulations' },
                          grid: { color: 'rgba(0,0,0,0.05)' } }
@@ -334,12 +356,12 @@
     }
 
     // ── Cone renderers ────────────────────────────────────────────────────────
-    function renderThroughputCone(coneData, confidence, pctTasks) {
+    function renderThroughputCone(coneData, confidence, pctTasks, ctx) {
         if (!coneData || !coneData.days || !coneData.days.length) { return; }
         var annotations = {};
         if (pctTasks !== null && pctTasks !== undefined) {
             annotations.cl = horizontalLine(pctTasks,
-                confidence + '% \u2265 ' + pctTasks + ' tasks');
+                confidence + '% \u2265 ' + pctTasks + ' ' + ctx.noun);
         }
         var datasets = coneDatasets(coneData, 26, 145, 206);
         if (chartThroughputCone) { chartThroughputCone.destroy(); }
@@ -354,15 +376,15 @@
                                   boxWidth: 24, font: { size: 12 } } },
                     annotation: { annotations: annotations }
                 },
-                scales: coneScales('Calendar day', 'Cumulative tasks')
+                scales: coneScales('Calendar day', ctx.coneY)
             }
         });
     }
 
-    function renderCompletionCone(coneData, tasks, confidence, pctDays) {
+    function renderCompletionCone(coneData, tasks, confidence, pctDays, ctx) {
         if (!coneData || !coneData.days || !coneData.days.length) { return; }
         var targetLine = {
-            label: 'Target (' + tasks + ' tasks)',
+            label: 'Target (' + tasks + ' ' + ctx.noun + ')',
             data: coneData.days.map(function (d) { return { x: d, y: tasks }; }),
             borderColor: 'rgba(231,76,60,0.85)', borderWidth: 2,
             borderDash: [6, 4], pointRadius: 0, fill: false
@@ -394,7 +416,7 @@
                                   boxWidth: 24, font: { size: 12 } } },
                     annotation: { annotations: annotations }
                 },
-                scales: coneScales('Calendar day', 'Cumulative tasks')
+                scales: coneScales('Calendar day', ctx.coneY)
             }
         });
     }
@@ -405,11 +427,17 @@
         errorBanner.style.display = err ? 'block' : 'none';
         if (err) { errorBanner.textContent = err; return; }
 
+        var ctx = buildContext();
+        document.getElementById('throughputH3').textContent     = ctx.throughputH3;
+        document.getElementById('completionH3').textContent     = ctx.completionH3;
+        document.getElementById('throughputConeH3').textContent = ctx.throughputConeH3;
+        document.getElementById('completionConeH3').textContent = ctx.completionConeH3;
+
         var pctTasks = null, pctDays = null;
-        if (throughputData.length) { pctTasks = renderThroughputChart(throughputData, confidenceValue); }
+        if (throughputData.length) { pctTasks = renderThroughputChart(throughputData, confidenceValue, ctx); }
         if (completionData.length) { pctDays  = renderCompletionChart(completionData,  confidenceValue); }
-        renderThroughputCone(throughputConeData, confidenceValue, pctTasks);
-        renderCompletionCone(completionConeData, tasksValue, confidenceValue, pctDays);
+        renderThroughputCone(throughputConeData, confidenceValue, pctTasks, ctx);
+        renderCompletionCone(completionConeData, tasksValue, confidenceValue, pctDays, ctx);
     }
 
     // ── Run Simulation ────────────────────────────────────────────────────────
@@ -427,9 +455,6 @@
         confidenceValue            = confidence;
         daysValue                  = days;
         tasksValue                 = tasks;
-        daysLabel.textContent      = days;
-        tasksLabel.textContent     = tasks;
-        tasksLabelCone.textContent = tasks;
 
         runButton.disabled         = true;
         runButton.textContent      = 'Running\u2026';
@@ -910,12 +935,12 @@
     <div class="mc-section-title">Probability Distribution</div>
     <div class="mc-charts">
         <div class="mc-chart-panel">
-            <h3>Tasks completed in <span id="daysLabel">14</span> days</h3>
+            <h3 id="throughputH3">Record records processed in 14 days</h3>
             <p class="mc-confidence-label" id="throughputConfidenceDisplay">&mdash;</p>
             <canvas id="throughputChart" height="210"></canvas>
         </div>
         <div class="mc-chart-panel">
-            <h3>Days to complete <span id="tasksLabel">50</span> tasks</h3>
+            <h3 id="completionH3">Days until 50 Record records processed</h3>
             <p class="mc-confidence-label" id="completionConfidenceDisplay">&mdash;</p>
             <canvas id="completionChart" height="210"></canvas>
         </div>
@@ -925,11 +950,11 @@
     <div class="mc-section-title">Cone of Uncertainty</div>
     <div class="mc-charts">
         <div class="mc-chart-panel">
-            <h3>Throughput trajectory over time</h3>
+            <h3 id="throughputConeH3">Throughput trajectory over time</h3>
             <canvas id="throughputConeChart" height="210"></canvas>
         </div>
         <div class="mc-chart-panel">
-            <h3>Progress toward <span id="tasksLabelCone">50</span> tasks</h3>
+            <h3 id="completionConeH3">Progress toward 50 records processed</h3>
             <canvas id="completionConeChart" height="210"></canvas>
         </div>
     </div>
