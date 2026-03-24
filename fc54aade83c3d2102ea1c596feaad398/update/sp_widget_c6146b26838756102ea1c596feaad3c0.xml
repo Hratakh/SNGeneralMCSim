@@ -3,6 +3,10 @@
         <category>custom</category>
         <client_script><![CDATA[api.controller = function ($scope) {
 
+    // ── Context label state (declared first — used before State section) ──────
+    var tableLabel     = '';
+    var dateFieldLabel = '';
+
     // ── DOM references ────────────────────────────────────────────────────────
     var tableSearch       = document.getElementById('tableSearch');
     var tableHidden       = document.getElementById('tableInput');
@@ -170,8 +174,6 @@
     var confidenceValue    = 85;
     var daysValue          = 14;
     var tasksValue         = 50;
-    var tableLabel         = '';
-    var dateFieldLabel     = '';
     var throughputData     = $scope.data.throughputHistogramData || [];
     var completionData     = $scope.data.completionHistogramData || [];
     var throughputConeData = $scope.data.throughputConeData      || null;
@@ -484,8 +486,8 @@
         if (v >= 1 && v <= 100) { confidenceValue = v; renderAll(); }
     });
 
-    // ── Initial render ────────────────────────────────────────────────────────
-    renderAll();
+    // ── Initial render (only if simulation data exists) ───────────────────────
+    if (throughputData.length || completionData.length) { renderAll(); }
 };
 ]]></client_script>
         <controller_as>c</controller_as>
@@ -796,6 +798,7 @@
         }
         data.taskTables = taskTables;
         data.dateFields = getDateFields(queryTable); // pre-load fields for default table
+        return; // skip simulation — only runs when the user clicks Run Simulation
     }
 
     // ── Simulation utilities ──────────────────────────────────────────────────
@@ -935,12 +938,12 @@
     <div class="mc-section-title">Probability Distribution</div>
     <div class="mc-charts">
         <div class="mc-chart-panel">
-            <h3 id="throughputH3">Record records processed in 14 days</h3>
+            <h3 id="throughputH3">Throughput distribution</h3>
             <p class="mc-confidence-label" id="throughputConfidenceDisplay">&mdash;</p>
             <canvas id="throughputChart" height="210"></canvas>
         </div>
         <div class="mc-chart-panel">
-            <h3 id="completionH3">Days until 50 Record records processed</h3>
+            <h3 id="completionH3">Time-to-complete distribution</h3>
             <p class="mc-confidence-label" id="completionConfidenceDisplay">&mdash;</p>
             <canvas id="completionChart" height="210"></canvas>
         </div>
@@ -954,7 +957,7 @@
             <canvas id="throughputConeChart" height="210"></canvas>
         </div>
         <div class="mc-chart-panel">
-            <h3 id="completionConeH3">Progress toward 50 records processed</h3>
+            <h3 id="completionConeH3">Time-to-complete cone of uncertainty</h3>
             <canvas id="completionConeChart" height="210"></canvas>
         </div>
     </div>
