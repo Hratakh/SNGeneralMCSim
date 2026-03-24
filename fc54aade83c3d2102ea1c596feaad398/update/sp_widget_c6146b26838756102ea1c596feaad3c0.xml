@@ -8,7 +8,7 @@
     var tableHidden       = document.getElementById('tableInput');
     var tableDropdown     = document.getElementById('tableDropdown');
     var queryInput        = document.getElementById('queryInput');
-    var datefieldInput    = document.getElementById('datefieldInput');
+    var datefieldSelect   = document.getElementById('datefieldInput');
     var confidenceInput   = document.getElementById('confidenceInput');
     var iterationsInput   = document.getElementById('iterationsInput');
     var daysInput         = document.getElementById('daysInput');
@@ -68,6 +68,7 @@
         tableHidden.value  = t.name;
         tableDropdown.style.display = 'none';
         typeaheadHighlight = -1;
+        loadDateFields(t.name); // refresh date fields for the newly selected table
     }
 
     tableSearch.addEventListener('focus', function () {
@@ -114,6 +115,51 @@
     var defaultTable = taskTables.find(function (t) { return t.name === tableHidden.value; });
     if (defaultTable) { tableSearch.value = defaultTable.label; }
     else if (taskTables.length > 0) { pickTable(taskTables[0]); }
+
+    // ── Date field select ─────────────────────────────────────────────────────
+    // Populates the date field <select> with the fields returned by the server.
+    function populateDateFields(fields, preferredValue) {
+        datefieldSelect.innerHTML = '';
+        if (!fields || fields.length === 0) {
+            var empty = document.createElement('option');
+            empty.value = '';
+            empty.textContent = '— no date fields found —';
+            datefieldSelect.appendChild(empty);
+            return;
+        }
+        fields.forEach(function (f) {
+            var opt = document.createElement('option');
+            opt.value = f.name;
+            opt.textContent = f.label;
+            datefieldSelect.appendChild(opt);
+        });
+        // Prefer the requested value, fall back to first option
+        datefieldSelect.value = preferredValue || '';
+        if (!datefieldSelect.value && fields.length > 0) {
+            datefieldSelect.value = fields[0].name;
+        }
+    }
+
+    // Called every time the user selects a different table from the typeahead.
+    // Makes a lightweight server call (fetchFields branch — no simulation).
+    function loadDateFields(tableName) {
+        datefieldSelect.disabled = true;
+        var loading = document.createElement('option');
+        loading.textContent = 'Loading\u2026';
+        datefieldSelect.innerHTML = '';
+        datefieldSelect.appendChild(loading);
+
+        $scope.server.get({ fetchFields: true, queryTable: tableName })
+            .then(function (response) {
+                populateDateFields(response.data.dateFields, 'closed_at');
+            })
+            .finally(function () {
+                datefieldSelect.disabled = false;
+            });
+    }
+
+    // Populate from server data already returned on initial page load
+    populateDateFields($scope.data.dateFields || [], 'closed_at');
 
     // ── State ─────────────────────────────────────────────────────────────────
     var confidenceValue    = 85;
@@ -392,7 +438,7 @@
             days: days, tasks: tasks, iterations: iterations,
             queryTable:   tableHidden.value,
             queryEncoded: queryInput.value,
-            dateField:    datefieldInput.value
+            dateField:    datefieldSelect.value
         }).then(function (response) {
             $scope.data            = response.data;
             throughputData         = response.data.throughputHistogramData || [];
@@ -504,7 +550,8 @@
 .mc-field input[type="number"] { width: 72px; }
 .mc-field input[type="text"]   { width: 138px; }
 #queryInput                    { width: 210px; }
-#tableInput                    { width: 190px; }
+#tableSearch                   { width: 190px; }
+#datefieldInput                { width: 170px; }
 
 /* ── Run button ──────────────────────────────────────────────────────────── */
 .mc-run-btn {
@@ -647,6 +694,48 @@
     var queryEncoded = input && input.queryEncoded ? input.queryEncoded             : 'active=false';
     var dateField    = input && input.dateField    ? input.dateField                : 'closed_at';
 
+    // ── Date field lookup (shared by initial load and fetchFields branch) ─────
+    // Walks the table inheritance chain via sys_db_object and collects all
+    // glide_date_time / glide_date fields, deduplicating across hierarchy levels.
+    function getDateFields(tableName) {
+        var fields = {};
+        var current = tableName;
+        for (var lvl = 0; lvl < 8 && current; lvl++) {
+            var dictGr = new GlideRecord('sys_dictionary');
+            dictGr.addQuery('name', current);
+            dictGr.addQuery('internal_type', 'IN', 'glide_date_time,glide_date');
+            dictGr.addQuery('active', true);
+            dictGr.query();
+            while (dictGr.next()) {
+                var elem = dictGr.getValue('element');
+                if (elem && !fields[elem]) {
+                    fields[elem] = dictGr.getValue('column_label') || elem;
+                }
+            }
+            // Step up to parent table
+            var objGr = new GlideRecord('sys_db_object');
+            objGr.addQuery('name', current);
+            objGr.setLimit(1);
+            objGr.query();
+            if (!objGr.next()) { break; }
+            var parentId = objGr.getValue('super_class');
+            if (!parentId) { break; }
+            var parentGr = new GlideRecord('sys_db_object');
+            current = parentGr.get(parentId) ? parentGr.getValue('name') : null;
+        }
+        var result = Object.keys(fields).map(function (elem) {
+            return { name: elem, label: fields[elem] };
+        });
+        result.sort(function (a, b) { return a.label.localeCompare(b.label); });
+        return result;
+    }
+
+    // ── Lightweight branch: return date fields only (called on table change) ──
+    if (input && input.fetchFields) {
+        data.dateFields = getDateFields(queryTable);
+        return;
+    }
+
     // ── Task table hierarchy (initial load only) ──────────────────────────────
     // BFS over sys_db_object to collect every table that extends "task"
     // at any depth. Uses one query per depth level (IN operator) for efficiency.
@@ -681,6 +770,7 @@
             gs.warn('McWidget: task table query failed — ' + e);
         }
         data.taskTables = taskTables;
+        data.dateFields = getDateFields(queryTable); // pre-load fields for default table
     }
 
     // ── Simulation utilities ──────────────────────────────────────────────────
@@ -783,7 +873,9 @@
 
             <div class="mc-field">
                 <label>Date Field</label>
-                <input id="datefieldInput" type="text" value="closed_at" placeholder="e.g. closed_at" />
+                <select id="datefieldInput">
+                    <!-- populated dynamically based on selected table -->
+                </select>
             </div>
 
             <div class="mc-field">
