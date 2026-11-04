@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_fix">
+    <sys_script_fix action="INSERT_OR_UPDATE">
+        <before>false</before>
+        <description>Story creation for PDIs (not to be used in a production environment, indeed)</description>
+        <name>ITSMMC Generate Demo Stories</name>
+        <record_for_rollback>true</record_for_rollback>
+        <script><![CDATA[/**
+ * Fix Script: Generate Monte Carlo demo stories
+ * Table: rm_story (Agile Development 2.0)
+ *
+ * - 300 completed stories, closed on weekdays across the last 365 days
+ * - Cycle time (work_start -> work_end/closed_at) ~ log-normal
+ * - All records are tagged with a prefix so they can be removed again
+ */
+(function () {
+
+    // ---------- Configuration ----------
+    var STORY_COUNT      = 300;
+    var DAYS_BACK        = 365;
+    var MEDIAN_CYCLE_DAYS = 6;     // median cycle time
+    var SIGMA            = 0.8;    // spread of the tail (higher = longer tail)
+    var MIN_CYCLE_DAYS   = 0.5;
+    var MAX_CYCLE_DAYS   = 60;
+    var MAX_WAIT_DAYS    = 10;     // backlog wait between creation and work start
+    var STATE_COMPLETE   = 3;      // verify in sys_choice for rm_story.state
+    var PREFIX           = '[MC-DEMO] ';
+
+    // ---------- Helpers ----------
+    function randInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    // Standard normal via Box-Muller
+    function randNormal() {
+        var u = 0, v = 0;
+        while (u === 0) u = Math.random();
+        while (v === 0) v = Math.random();
+        return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+    }
+
+    function randCycleDays() {
+        var d = Math.exp(Math.log(MEDIAN_CYCLE_DAYS) + SIGMA * randNormal());
+        return Math.min(MAX_CYCLE_DAYS, Math.max(MIN_CYCLE_DAYS, d));
+    }
+
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+    // Random weekday within the window, random working-hour time (UTC)
+    function randCloseDate(now) {
+        var gdt, dow;
+        do {
+            gdt = new GlideDateTime(now);
+            gdt.addDaysUTC(-randInt(1, DAYS_BACK));
+            dow = gdt.getDayOfWeekUTC(); // 1 = Mon ... 7 = Sun
+        } while (dow > 5);
+        var datePart = gdt.getDate().getValue();
+        gdt.setValue(datePart + ' ' + pad(randInt(8, 17)) + ':' + pad(randInt(0, 59)) + ':' + pad(randInt(0, 59)));
+        return gdt;
+    }
+
+    function percentile(sorted, p) {
+        var idx = Math.min(sorted.length - 1, Math.ceil(p * sorted.length) - 1);
+        return sorted[Math.max(0, idx)];
+    }
+
+    // ---------- Main ----------
+    var now = new GlideDateTime();
+    var cycleTimes = [];
+    var created = 0;
+
+    for (var i = 1; i <= STORY_COUNT; i++) {
+        var cycleDays = randCycleDays();
+        var waitDays  = Math.random() * MAX_WAIT_DAYS;
+
+        var closedAt = randCloseDate(now);
+
+        var startAt = new GlideDateTime(closedAt);
+        startAt.addSeconds(-Math.round(cycleDays * 86400));
+
+        var createdAt = new GlideDateTime(startAt);
+        createdAt.addSeconds(-Math.round(waitDays * 86400));
+
+        var gr = new GlideRecord('rm_story');
+        gr.initialize();
+        gr.setValue('short_description', PREFIX + 'Story ' + pad(i) + ' - Monte Carlo demo');
+        gr.setValue('state', STATE_COMPLETE);
+        gr.setValue('active', false);
+        gr.setValue('opened_at', createdAt.getValue());
+        gr.setValue('work_start', startAt.getValue());
+        gr.setValue('work_end', closedAt.getValue());
+        gr.setValue('closed_at', closedAt.getValue());
+        gr.setValue('sys_created_on', createdAt.getValue());
+        gr.setValue('sys_updated_on', closedAt.getValue());
+
+        gr.autoSysFields(false);  // keep our timestamps
+        gr.setWorkflow(false);    // skip business rules / flows / notifications
+        if (gr.insert()) {
+            created++;
+            cycleTimes.push(cycleDays);
+        }
+    }
+
+    // ---------- Summary ----------
+    cycleTimes.sort(function (a, b) { return a - b; });
+    var sum = 0;
+    for (var j = 0; j < cycleTimes.length; j++) sum += cycleTimes[j];
+
+    gs.info('[MC-DEMO] Created ' + created + ' of ' + STORY_COUNT + ' stories.');
+    gs.info('[MC-DEMO] Cycle time (days) - avg: ' + (sum / cycleTimes.length).toFixed(1) +
+            ', P50: ' + percentile(cycleTimes, 0.50).toFixed(1) +
+            ', P85: ' + percentile(cycleTimes, 0.85).toFixed(1) +
+            ', P95: ' + percentile(cycleTimes, 0.95).toFixed(1));
+
+})();]]></script>
+        <sys_class_name>sys_script_fix</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-11-04 08:02:12</sys_created_on>
+        <sys_id>5efcea5a83581f10f13c95a6feaad3aa</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>ITSMMC Generate Demo Stories</sys_name>
+        <sys_package display_value="ITSM Monte Carlo Simulation" source="x_441470_itsm_mcs">fc54aade83c3d2102ea1c596feaad398</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="ITSM Monte Carlo Simulation">fc54aade83c3d2102ea1c596feaad398</sys_scope>
+        <sys_update_name>sys_script_fix_5efcea5a83581f10f13c95a6feaad3aa</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-11-04 08:02:12</sys_updated_on>
+        <unloadable>false</unloadable>
+    </sys_script_fix>
+</record_update>

@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_script_fix">
+    <sys_script_fix action="INSERT_OR_UPDATE">
+        <before>false</before>
+        <description>Originally designed as a Background Script...</description>
+        <name>ITSMMC Generate Demo Incidents</name>
+        <record_for_rollback>true</record_for_rollback>
+        <script><![CDATA[/**
+ * Background Script: Create 500 Test Incidents
+ * 
+ * Erstellt 500 Incidents mit zufälligen Eröffnungsdaten innerhalb der letzten 12 Monate.
+ * Jeder Incident wird innerhalb von max. 30 Tagen (zufällig) gelöst und geschlossen.
+ * 
+ * Ausführung: System Definition > Scripts - Background
+ */
+
+// ─── Konfiguration ────────────────────────────────────────────────────────────
+
+var CONFIG = {
+    count:          500,          // Anzahl zu erstellender Incidents
+    maxResolveDays: 30,           // Maximale Lösungsdauer in Tagen
+    lookbackDays:   365,          // Rückblickzeitraum in Tagen (12 Monate)
+    batchSize:      50,           // Log-Ausgabe alle N Datensätze
+    assignmentGroups: [           // Zufällige Assignment Groups (anpassen!)
+        'Service Desk',
+        'Network',
+        'Hardware',
+        'Database',
+        'Application Support',
+        'Security'
+    ],
+    categories: ['Software', 'Hardware', 'Network', 'Database', 'Inquiry / Help', 'Other'],
+    subcategories: {
+        'Software':        ['Email', 'OS / System', 'Application', 'Virus / Malware'],
+        'Hardware':        ['CPU', 'Disk', 'Monitor', 'Printer', 'Keyboard / Mouse'],
+        'Network':         ['VPN', 'Wireless', 'Local Connectivity', 'Internet Access'],
+        'Database':        ['DB Performance', 'DB Access', 'DB Backup'],
+        'Inquiry / Help':  ['Password Reset', 'New Access', 'How To'],
+        'Other':           ['Unknown', 'General']
+    },
+    priorities: ['1', '2', '3', '4'],           // 1=Critical, 2=High, 3=Moderate, 4=Low
+    priorityWeights: [5, 15, 50, 30],           // Gewichtung in Prozent
+    impactUrgency: ['1', '2', '3'],
+    shortDescriptions: [
+        'Unable to login to application',
+        'Email not working',
+        'VPN connection fails',
+        'Printer not responding',
+        'Slow system performance',
+        'Application crashes on startup',
+        'Network drive not accessible',
+        'Password reset required',
+        'Blue screen of death',
+        'Monitor displaying no signal',
+        'Database connection timeout',
+        'User account locked out',
+        'Software license expired',
+        'File cannot be opened',
+        'Web browser not loading pages',
+        'Outlook not syncing emails',
+        'Remote desktop connection refused',
+        'System clock out of sync',
+        'Antivirus definition outdated',
+        'USB device not recognized'
+    ]
+};
+
+// ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
+
+/**
+ * Zufällige Ganzzahl zwischen min und max (inklusiv)
+ */
+function randInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+/**
+ * Zufälliges Element aus einem Array
+ */
+function randItem(arr) {
+    return arr[randInt(0, arr.length - 1)];
+}
+
+/**
+ * Gewichtete Zufallsauswahl aus einem Array
+ * weights: Array mit Prozentzahlen (muss zusammen 100 ergeben)
+ */
+function weightedRand(arr, weights) {
+    var r = Math.random() * 100;
+    var cumulative = 0;
+    for (var i = 0; i < arr.length; i++) {
+        cumulative += weights[i];
+        if (r < cumulative) return arr[i];
+    }
+    return arr[arr.length - 1];
+}
+
+/**
+ * Gibt ein GlideDateTime-Objekt zurück, das um `days` Tage und `hours` Stunden
+ * vom Referenzzeitpunkt `baseGdt` versetzt ist.
+ */
+function addTime(baseGdt, days, hours) {
+    var gdt = new GlideDateTime(baseGdt);
+    gdt.addDaysLocalTime(days);
+    if (hours) gdt.addSeconds(hours * 3600);
+    return gdt;
+}
+
+/**
+ * GlideDateTime für einen zufälligen Zeitpunkt innerhalb der letzten `lookbackDays` Tage
+ */
+function randomOpenedAt() {
+    var now   = new GlideDateTime();
+    var daysBack  = randInt(1, CONFIG.lookbackDays);
+    var hoursBack = randInt(0, 23);
+    var gdt = new GlideDateTime(now);
+    gdt.addDaysLocalTime(-daysBack);
+    gdt.addSeconds(-hoursBack * 3600);
+    return gdt;
+}
+
+/**
+ * Sys_id einer Assignment Group nach Name ermitteln (gecacht)
+ */
+var groupCache = {};
+function getGroupSysId(groupName) {
+    if (groupCache[groupName]) return groupCache[groupName];
+    var gr = new GlideRecord('sys_user_group');
+    gr.addQuery('name', groupName);
+    gr.setLimit(1);
+    gr.query();
+    if (gr.next()) {
+        groupCache[groupName] = gr.sys_id.toString();
+        return groupCache[groupName];
+    }
+    return '';
+}
+
+/**
+ * Sys_id eines beliebigen aktiven Users aus einer Group (gecacht)
+ */
+var userCache = {};
+function getRandomUserFromGroup(groupSysId) {
+    if (!groupSysId) return '';
+    if (userCache[groupSysId]) {
+        var users = userCache[groupSysId];
+        return users.length ? randItem(users) : '';
+    }
+    var members = [];
+    var gr = new GlideRecord('sys_user_grmember');
+    gr.addQuery('group', groupSysId);
+    gr.query();
+    while (gr.next()) {
+        var userSysId = gr.user.sys_id.toString();
+        if (userSysId) members.push(userSysId);
+    }
+    userCache[groupSysId] = members;
+    return members.length ? randItem(members) : '';
+}
+
+// ─── Haupt-Logik ──────────────────────────────────────────────────────────────
+
+var created = 0;
+var errors  = 0;
+
+gs.info('=== START: Erzeuge ' + CONFIG.count + ' Test-Incidents ===');
+
+for (var i = 0; i < CONFIG.count; i++) {
+
+    try {
+        // Zeitstempel berechnen
+        var openedAt   = randomOpenedAt();
+        var resolveOffsetDays  = randInt(0, CONFIG.maxResolveDays - 1);
+        var resolveOffsetHours = randInt(1, 23);
+        var resolvedAt = addTime(openedAt, resolveOffsetDays, resolveOffsetHours);
+        var closedAt   = addTime(resolvedAt, randInt(0, 2), randInt(0, 4)); // kurz nach Resolve
+
+        // Sicherstellen, dass Zeitstempel nicht in der Zukunft liegen
+        var now = new GlideDateTime();
+        if (resolvedAt.compareTo(now) > 0) resolvedAt = new GlideDateTime(now);
+        if (closedAt.compareTo(now)   > 0) closedAt   = new GlideDateTime(now);
+
+        // Kategorie & Subkategorie
+        var category    = randItem(CONFIG.categories);
+        var subcategory = randItem(CONFIG.subcategories[category]);
+
+        // Assignment Group & Assigned-to User
+        var groupName  = randItem(CONFIG.assignmentGroups);
+        var groupSysId = getGroupSysId(groupName);
+        var userSysId  = getRandomUserFromGroup(groupSysId);
+
+        // Priority, Impact, Urgency
+        var priority = weightedRand(CONFIG.priorities, CONFIG.priorityWeights);
+        var impact   = randItem(CONFIG.impactUrgency);
+        var urgency  = randItem(CONFIG.impactUrgency);
+
+        // Incident erstellen
+        var inc = new GlideRecord('incident');
+        inc.initialize();
+
+        inc.short_description   = randItem(CONFIG.shortDescriptions) + ' (' + (i + 1) + ')';
+        inc.description         = 'Test-Incident #' + (i + 1) + ' automatisch generiert via Background Script.';
+        inc.category            = category;
+        inc.subcategory         = subcategory;
+        inc.priority            = priority;
+        inc.impact              = impact;
+        inc.urgency             = urgency;
+        inc.state               = 7;          // Closed
+        inc.incident_state      = 7;          // Closed
+        inc.opened_at           = openedAt;
+        inc.resolved_at         = resolvedAt;
+        inc.closed_at           = closedAt;
+        inc.resolved_by         = userSysId;
+        inc.assignment_group    = groupSysId;
+        inc.assigned_to         = userSysId;
+        inc.caller_id           = userSysId;
+        inc.close_code          = 'Solved (Permanently)';
+        inc.close_notes         = 'Issue resolved and verified by end user. Ticket closed automatically via test data generation.';
+        inc.resolve_time        = (resolveOffsetDays * 86400) + (resolveOffsetHours * 3600);
+
+        // sys_created_on / opened_at Workaround: direkt setzen
+        inc.setValue('opened_at', openedAt.getValue());
+        inc.setValue('sys_created_on', openedAt.getValue());
+
+        var sysId = inc.insert();
+
+        if (sysId) {
+            created++;
+            if (created % CONFIG.batchSize === 0) {
+                gs.info('... ' + created + ' Incidents erstellt.');
+            }
+        } else {
+            errors++;
+            gs.warn('Incident #' + (i + 1) + ' konnte nicht erstellt werden.');
+        }
+
+    } catch (e) {
+        errors++;
+        gs.error('Fehler bei Incident #' + (i + 1) + ': ' + e.message);
+    }
+}
+
+gs.info('=== FERTIG ===');
+gs.info('Erfolgreich erstellt : ' + created);
+gs.info('Fehler               : ' + errors);
+gs.info('Gesamt versucht      : ' + CONFIG.count);]]></script>
+        <sys_class_name>sys_script_fix</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2026-11-04 07:47:28</sys_created_on>
+        <sys_id>e37922de83181f10f13c95a6feaad343</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>ITSMMC Generate Demo Incidents</sys_name>
+        <sys_package display_value="ITSM Monte Carlo Simulation" source="x_441470_itsm_mcs">fc54aade83c3d2102ea1c596feaad398</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="ITSM Monte Carlo Simulation">fc54aade83c3d2102ea1c596feaad398</sys_scope>
+        <sys_update_name>sys_script_fix_e37922de83181f10f13c95a6feaad343</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2026-11-04 07:47:28</sys_updated_on>
+        <unloadable>false</unloadable>
+    </sys_script_fix>
+</record_update>
